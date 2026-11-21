@@ -1,26 +1,70 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* 작당모임 디자인 토큰
+   - 신뢰: 크림 바탕 + 짙은 초록
+   - 장난기: 귤색 포인트 한 가지 (도장, 따리, 강조선) */
+@theme {
+  --font-sans: "Pretendard Variable", Pretendard, system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif;
+
+  --color-cream: #FAF8F3;
+  --color-backdrop: #EFEBE3;
+  --color-paper: #FFFFFF;
+  --color-line: #ECE7DC;
+  --color-line-strong: #DDD7CA;
+  --color-ink: #1E2622;
+  --color-sub: #5E6862;
+  --color-mute: #F3F0E9;
+
+  --color-green: #2E6B52;
+  --color-green-deep: #1F4F3C;
+  --color-mint: #E3F0E8;
+  --color-mint-ink: #1F5440;
+
+  --color-tangerine: #F08A3C;
+  --color-tangerine-soft: #FDEBDC;
+  --color-tangerine-ink: #8A3F0A;
+
+  --color-sky: #EAF1F8;
+  --color-sky-ink: #24476B;
+  --color-rose: #B4372C;
+
+  --radius-card: 22px;
+  --shadow-phone: 0 24px 48px -24px rgb(30 38 34 / 0.35);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html, body { height: 100%; }
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  background: var(--color-backdrop);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  word-break: keep-all;
 }
+
+/* 쪽지 카드: 위쪽에 살짝 접힌 자국 */
+.note-card {
+  position: relative;
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+}
+.note-card::before {
+  content: "";
+  position: absolute;
+  top: -1px; right: 28px;
+  width: 44px; height: 14px;
+  background: var(--color-tangerine-soft);
+  border-radius: 0 0 6px 6px;
+  opacity: .9;
+}
+
+/* 손글씨 느낌 밑줄 */
+.scribble {
+  background-image: linear-gradient(transparent 62%, rgb(240 138 60 / .35) 62%, rgb(240 138 60 / .35) 90%, transparent 90%);
+}
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+:focus-visible { outline: 3px solid var(--color-tangerine); outline-offset: 2px; border-radius: 8px; }

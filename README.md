@@ -1,36 +1,101 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 작당모임 — 모이면, 열린다
 
-## Getting Started
+비어 있는 공공시설 시간에 **필요 인원(도장판)** 을 걸고, 같은 시간에 쓰고 싶은 동네 이웃이 모여 도장이 다 차면 예약이 열리는 모바일 웹앱입니다.
+목표는 하나, **처음 보는 이웃과 만나는 경계를 낮추는 것**.
 
-First, run the development server:
+## 경계 낮추기 원칙
+
+| 원칙 | 화면에서 |
+|---|---|
+| 연락처 대신 앱 채팅 | 작당이 열리면 멤버끼리만 들어오는 **작당방** |
+| 누가 오는지 미리 보이게 | 카드와 상세에 **학교·동네 인증 배지**, 믿음 도장(매너점수) |
+| '노쇼'라는 말 쓰지 않기 | 이전 내역은 *뒷정리 완료 / 함께했어요 / 함께하지 못함 / 열리지 않음* 으로 담담하게, 남에게는 '약속 지킨 모임' 숫자만 |
+| 점수는 행동으로 쌓기 | **뒷정리 작전(퇴실 인증)**: 정리 사진·체크리스트·위치 확인 → 이웃 칭찬 |
+| 함께한 사람과 다시 만나기 | **작당 동료(친구) 추가**, 친구가 참여한 쪽지 표시, 다음 주 같은 시간 또 작당하기 |
+| 나이대·성별은 '선호'로만 | 기본값은 *누구나*, 조건을 걸면 "모이는 데 더 걸릴 수 있어요" 안내 |
+| 대표 예약 결제는 다음 단계 | 지금은 원본 사이트 예약 + **정산 문구 복사** |
+
+## 기술 스택
+
+- **Next.js (App Router) + TypeScript** — 모바일 웹앱(PWA 매니페스트 포함)
+- **Tailwind CSS v4** — 디자인 토큰은 `src/app/globals.css`의 `@theme`
+- **Motion** — 도장 쾅, 금액 카운트다운, 따리 캐릭터 움직임
+- **canvas-confetti** — 작당 성공 연출
+- **Supabase** (선택) — slots / participants / messages 실시간 동기화
+- **Pretendard** — 한글 폰트 (npm 패키지로 로컬 번들)
+
+## 시작하기
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+환경 변수 없이도 바로 돌아갑니다(브라우저 localStorage 목업 모드). 시연 데이터는 '내 기록' 맨 아래 버튼으로 처음 상태로 되돌릴 수 있어요.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Supabase 실시간 모드
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Supabase 프로젝트를 만들고 SQL Editor에서 `supabase/schema.sql` 실행
+2. `.env.example`을 `.env.local`로 복사해 URL·anon key 입력
+3. `npm run dev` → 첫 접속 때 빈 DB면 시연 데이터가 자동으로 들어가요
+4. 폰으로 같은 주소를 열어 참여하면 노트북 화면의 도장판이 실시간으로 찹니다
 
-## Learn More
+> `schema.sql`의 RLS 정책은 해커톤용(익명 전체 허용)입니다. 실서비스 전에 인증 기반으로 바꿔야 해요.
 
-To learn more about Next.js, take a look at the following resources:
+## 화면
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| 경로 | 화면 |
+|---|---|
+| `/` | 홈 · 작당 쪽지 목록 (시간대·종목·편한 모임 필터, 정렬, KPI) |
+| `/s/[id]` | 쪽지 상세 · 도장판 · 멤버(인증/믿음/친구 추가) · 상태별 행동 · 미달 시 대체 공간 |
+| `/s/[id]/checkout` | 뒷정리 작전(퇴실 인증) 3단계 |
+| `/chat`, `/chat/[id]` | 작당방 목록 / 채팅 |
+| `/new` | 작당 쪽지 쓰기 (필요 인원·목표 1인당·마감 미리보기) |
+| `/my` | 내 작당 |
+| `/me` | 내 기록 · 인증 · 믿음 도장 · 이전 내역 · 작당 동료 |
+| `/notifications` | 알림 |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 폴더 구조
 
-## Deploy on Vercel
+```
+src/
+  app/                  # 라우트(위 표)
+  components/
+    AppShell.tsx        # 430px 모바일 틀 + 하단 탭바
+    SlotCard.tsx        # 작당 쪽지 카드
+    StampGauge.tsx      # 도장판 게이지
+    Ddari.tsx           # 캐릭터 '따리' (look / excited / cheer / sweep / sleepy)
+    JoinSheet.tsx       # 닉네임 + PIN 참여/취소 시트
+    Celebration.tsx     # 작당 성공! 연출
+    useJoinFlow.tsx     # 참여 → 도장 → 성공 연출 흐름
+    ui.tsx, Icon.tsx    # 공용 UI
+  lib/
+    calc.ts             # 명세서 4장 공식 전부 (필요 인원, 1인당 금액, 가능성 등급, 마감)
+    types.ts            # 스키마 타입
+    store.tsx           # 상태 (Supabase ↔ localStorage 자동 전환)
+    supabase.ts         # 클라이언트 + 행 변환
+    mock.ts             # 시연용 시설·쪽지·멤버 (날짜는 '지금' 기준 생성)
+supabase/schema.sql
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 용어
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| 서비스 용어 | 뜻 |
+|---|---|
+| 작당 쪽지 | 빈칸(슬롯) 카드 |
+| 도장 | 참여 1명 |
+| 작당 성공 | 필요 인원 도달 = 열림 |
+| 작당 반장 | 대표 예약자(쪽지를 쓴 사람) |
+| 작당방 | 열린 모임 채팅 |
+| 뒷정리 작전 | 퇴실 인증 |
+| 믿음 도장 | 매너점수 |
+| 작당 동료 | 친구 |
+
+## 다음 단계
+
+- 서울시 공공서비스예약 API → `data/facilities.json` 추출 스크립트
+- 학교 메일 인증(Supabase Auth OTP), 동네 위치 인증
+- 웹 푸시 알림 (PWA)
+- 대표 예약 결제 / 정산
+- 시간 유연 대기 신청, 반쯤 찬 쪽지 합치기 제안, 지자체 가동률 대시보드

@@ -1,0 +1,13 @@
+{
+  "name": "작당모임",
+  "short_name": "작당모임",
+  "description": "모이면, 열린다 — 동네 이웃과 공공시설을 함께 쓰는 작당",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAF8F3",
+  "theme_color": "#FAF8F3",
+  "lang": "ko",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
