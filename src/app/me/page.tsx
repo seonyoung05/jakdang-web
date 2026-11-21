@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { signOut } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import Ddari from '@/components/Ddari';
+import Jakdangi from '@/components/Jakdangi';
 import Icon, { type IconName } from '@/components/Icon';
 import { Avatar, Badge, Button, LinkButton, Loading, SectionTitle } from '@/components/ui';
 
@@ -23,7 +23,7 @@ export default function MePage() {
   if (!user) {
     return (
       <div className="flex flex-col items-center gap-3 pt-16 text-center">
-        <Ddari mood="look" />
+        <Jakdangi color="peach" mood="whisper" size={64} />
         <b className="text-[17px]">로그인하고 작당에 합류해요</b>
         <LinkButton href="/login?next=/me" variant="dark" className="!w-auto">
           로그인 / 회원가입

@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useId, useState, type FormEvent } from 'react';
 import { signIn, signUp } from '@/lib/api';
-import Ddari from '@/components/Ddari';
+import Jakdangi from '@/components/Jakdangi';
 import { BackBar, Button, Note } from '@/components/ui';
 
 export default function LoginPage() {
@@ -48,7 +48,7 @@ export default function LoginPage() {
     <>
       <BackBar title={mode === 'in' ? '로그인' : '회원가입'} />
       <div className="mt-2 mb-6 flex items-center gap-3">
-        <Ddari mood="look" size={52} />
+        <Jakdangi color="sky" mood="sly" size={56} />
         <div>
           <h1 className="m-0 text-xl leading-snug font-black">{mode === 'in' ? '다시 오셨네요!' : '작당에 합류해요'}</h1>
           <p className="m-0 mt-1 text-[13px] text-sub">이메일로 {mode === 'in' ? '로그인' : '가입'}해요. 연락처는 받지 않아요.</p>

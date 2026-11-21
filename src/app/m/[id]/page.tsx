@@ -1,25 +1,30 @@
 'use client';
 
-import { use, useState, type FormEvent } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { use, useRef, useState, type FormEvent, type Ref } from 'react';
 import { getMeetup, joinMeetup, leaveMeetup, listMembers, listQna, postAnswer, postQuestion } from '@/lib/api';
 import { useAuth, useLoad } from '@/lib/auth';
 import type { MeetupMember, QnaThread } from '@/lib/types';
-import Celebration from '@/components/Celebration';
-import Ddari from '@/components/Ddari';
-import Icon from '@/components/Icon';
-import { meetupState, timeAgo } from '@/components/MeetupCard';
-import StampGauge from '@/components/StampGauge';
-import { Avatar, BackBar, Badge, Button, IconButton, LinkButton, Loading, Note, SectionTitle } from '@/components/ui';
+import Jakdangi from '@/components/Jakdangi';
+import { timeAgo } from '@/components/MeetupCard';
+import { InviteSheet, JoinSheet, NextSteps, QuestionSheet, SuccessScreen } from '@/components/MeetupSheets';
+import TableScene, { seatsFrom } from '@/components/TableScene';
+import { CircleButton, JdButton, JdLinkButton, JdPill, JdPillButton } from '@/components/jd';
+import { Loading } from '@/components/ui';
 
+/** 피그마 02 작당 상세 / 05 작당 상세 · 성공 */
 export default function MeetupDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
+  const search = useSearchParams();
   const { ready, user, nickname } = useAuth();
+  const [sheet, setSheet] = useState<'join' | 'invite' | 'question' | null>(search.get('invite') ? 'invite' : null);
+  const [success, setSuccess] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [celebrate, setCelebrate] = useState(false);
+  const qnaRef = useRef<HTMLElement>(null);
 
   const meetup = useLoad(() => getMeetup(id), [id]);
-  // 참여자 목록은 로그인해야 읽을 수 있다
   const members = useLoad<MeetupMember[] | null>(() => (user ? listMembers(id) : Promise.resolve(null)), [id, user?.id]);
   const qna = useLoad(() => listQna(id), [id]);
 
@@ -27,40 +32,38 @@ export default function MeetupDetailPage({ params }: { params: Promise<{ id: str
   const m = meetup.data;
   if (meetup.error || !m) {
     return (
-      <>
-        <BackBar title="모집" />
-        <div className="flex flex-col items-center gap-3 pt-16 text-center">
-          <Ddari mood="sleepy" />
-          <b>{meetup.error ?? '이 모집을 찾을 수 없어요'}</b>
-          <LinkButton href="/" variant="line" className="!w-auto">
-            홈으로
-          </LinkButton>
-        </div>
-      </>
+      <div className="flex flex-col items-center gap-3 pt-20 text-center">
+        <Jakdangi empty size={64} />
+        <b>{meetup.error ?? '이 작당을 찾을 수 없어요'}</b>
+        <JdLinkButton href="/" kind="light" className="!w-auto">
+          홈으로
+        </JdLinkButton>
+      </div>
     );
   }
 
   const p = m.programs;
   const list = members.data ?? [];
-  const count = members.data ? list.length : null;
+  const known = members.data !== null;
+  const count = list.length;
   const joined = !!user && list.some((x) => x.user_id === user.id);
-  const full = count !== null && count >= m.max_members;
+  const full = known && count >= m.max_members;
   const closed = m.status === 'CLOSED';
-  const st = meetupState(m, count);
+  const left = Math.max(0, m.max_members - count);
+  const people = list.map((x) => ({ id: x.user_id, name: x.profiles?.nickname || '이웃' }));
   const nameOf = (uid: string) => list.find((x) => x.user_id === uid)?.profiles?.nickname || (uid === user?.id ? nickname : '') || '이웃';
+  const pageUrl = typeof window === 'undefined' ? `/m/${m.id}` : `${window.location.origin}/m/${m.id}`;
+  const loginHref = `/login?next=${encodeURIComponent(`/m/${id}`)}`;
 
-  const act = async (kind: 'join' | 'leave') => {
+  const join = async () => {
     if (!user) return;
     setBusy(true);
     setErr(null);
     try {
-      if (kind === 'join') {
-        await joinMeetup(m.id, user.id);
-        const after = await listMembers(m.id);
-        if (after.length >= m.max_members) setCelebrate(true);
-      } else {
-        await leaveMeetup(m.id, user.id);
-      }
+      await joinMeetup(m.id, user.id);
+      const after = await listMembers(m.id);
+      setSheet(null);
+      if (after.length >= m.max_members) setSuccess(true);
       members.reload();
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -70,269 +73,289 @@ export default function MeetupDetailPage({ params }: { params: Promise<{ id: str
     }
   };
 
+  const leave = async () => {
+    if (!user) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await leaveMeetup(m.id, user.id);
+      members.reload();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const statusPill = closed ? <JdPill style="outline">모집 마감</JdPill> : full ? <JdPill style="dark">작당 성공</JdPill> : <JdPill>모집 중 · 선착순</JdPill>;
+
   return (
-    <>
-      <BackBar
-        title={p?.name ?? '모집'}
-        right={
-          <IconButton
-            label="새로고침"
-            icon="refresh"
-            onClick={() => {
-              meetup.reload();
-              members.reload();
-              qna.reload();
-            }}
-          />
-        }
-      />
+    <div className="flex min-h-full flex-col gap-[14px]">
+      <div className="flex items-center justify-between">
+        <CircleButton label="뒤로" onClick={() => (window.history.length > 1 ? router.back() : router.push('/'))}>
+          ‹
+        </CircleButton>
+        {statusPill}
+      </div>
 
-      <section className="note-card flex flex-col gap-3 p-4" aria-label="강좌 정보">
-        <div className="flex items-center justify-between gap-2">
-          <Badge tone={st.tone}>{st.label}</Badge>
-          <span className="text-xs text-sub">{timeAgo(m.created_at)} 개설</span>
-        </div>
-        <h1 className="m-0 text-xl leading-snug font-black">{p?.name}</h1>
-        <div className="flex flex-col gap-1 text-[13px] text-sub">
-          {p?.venue ? (
-            <span className="flex items-center gap-1.5">
-              <Icon name="pin" size={14} />
-              {p.venue}
-            </span>
-          ) : null}
-          {p?.schedule_text ? (
-            <span className="flex items-start gap-1.5">
-              <Icon name="cal" size={14} className="mt-[3px] shrink-0" />
-              {p.schedule_text}
-            </span>
-          ) : null}
-        </div>
-        {p?.registration_url ? (
-          <a
-            href={p.registration_url}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[14px] border border-line-strong bg-cream text-sm font-bold text-ink no-underline"
-          >
-            <Icon name="external" size={16} />
-            공식 신청 안내 확인
-          </a>
-        ) : null}
-        <Note>수강 신청은 공식 기관 사이트·전화·방문으로 각자 해요. 접수 여부와 남은 자리는 공식 안내에서 확인해 주세요.</Note>
-      </section>
+      <div className="flex flex-col gap-1 leading-[1.4]">
+        <h1 className="m-0 text-[22px] font-black">{p?.name} 작당</h1>
+        <p className="m-0 text-[12px] text-ink-2">{[p?.venue, p?.schedule_text].filter(Boolean).join(' · ')}</p>
+      </div>
 
-      <SectionTitle right={<span className="text-xs text-sub">선착순 · 정원 {m.max_members}명</span>}>
-        함께하는 이웃 {count === null ? '' : `${count}명`}
-      </SectionTitle>
-
-      {count === null ? (
-        <div className="flex items-center justify-between gap-3 rounded-[18px] border border-dashed border-line-strong bg-paper px-4 py-4">
-          <span className="text-[13px] text-sub">로그인하면 누가 함께하는지 볼 수 있어요</span>
-          <LinkButton href={`/login?next=${encodeURIComponent(`/m/${id}`)}`} variant="dark" className="!min-h-10 !w-auto !rounded-xl !px-3 !text-[13px]">
-            로그인
-          </LinkButton>
-        </div>
+      {/* 작당 현황 */}
+      {full ? (
+        <TableScene height={150} seats={seatsFrom(people, Math.min(6, count))} mood="joy" className="bg-peach" label="정원이 다 모여 만세하는 작당이들" />
       ) : (
-        <>
-          <StampGauge max={m.max_members} members={list.map((x) => ({ id: x.user_id, name: x.profiles?.nickname || '이웃' }))} myId={user?.id} />
-          <div className="note-card mt-3 px-4 py-1">
-            {list.map((x) => (
-              <div key={x.user_id} className="flex items-center gap-2.5 border-b border-line py-2.5 last:border-0">
-                <Avatar name={x.profiles?.nickname || '이웃'} size={36} ring={false} />
-                <div className="min-w-0 flex-1">
-                  <b className="flex items-center gap-1 text-sm">
-                    {x.profiles?.nickname || '이웃'}
-                    {x.user_id === m.creator_id ? <Badge>모집 연 사람</Badge> : null}
-                    {x.user_id === user?.id ? <Badge tone="green">나</Badge> : null}
-                  </b>
-                  <span className="text-xs text-sub">
-                    {x.profiles?.neighborhood_name ? `${x.profiles.neighborhood_name} · ` : ''}
-                    {timeAgo(x.joined_at)} 참여
-                  </span>
-                </div>
-              </div>
-            ))}
-            {list.length === 0 ? <p className="py-3 text-center text-[13px] text-sub">아직 참여한 이웃이 없어요</p> : null}
+        <section className="flex flex-col gap-3 rounded-[24px] bg-peach p-4" aria-label="작당 현황">
+          <div className="flex items-center justify-between leading-[1.4]">
+            <b className="text-[15px] font-black">{known ? `작당 중 ${count} / ${m.max_members}` : `정원 ${m.max_members}명`}</b>
+            <span className="text-[12px] font-bold text-coral-ink">{closed ? '모집이 마감됐어요' : known ? `${left}자리 비었어요` : '선착순'}</span>
           </div>
-        </>
+          <TableScene height={170} seats={seatsFrom(people, m.max_members)} bubbles={count >= 2 ? [{ seat: 0, text: 'ㅋㅋ' }] : []} />
+          {known ? (
+            <div className="flex flex-wrap items-center gap-x-[6px]">
+              {people.map((x) => (
+                <span key={x.id} className="inline-flex min-h-[32px] items-center">
+                  <JdPill style={x.id === user?.id ? 'dark' : 'outline'}>{x.id === user?.id ? `${x.name} (나)` : x.name}</JdPill>
+                </span>
+              ))}
+              {!joined && !closed && user ? (
+                <JdPillButton style="coral" onClick={() => setSheet('join')}>
+                  + 내 자리
+                </JdPillButton>
+              ) : null}
+            </div>
+          ) : (
+            <p className="m-0 text-[12px] text-ink-2">로그인하면 누가 모였는지 보여요</p>
+          )}
+        </section>
       )}
 
-      <div className="mt-4 flex flex-col gap-2">
-        {err ? (
+      {full && joined ? <NextSteps schedule={p?.schedule_text ?? null} /> : null}
+
+      {/* 정보 */}
+      <section className="note-card flex flex-col px-4 py-1 text-[12px] leading-[1.4]" aria-label="강좌 정보">
+        {[
+          ['장소', p?.venue],
+          ['일정', p?.schedule_text],
+          ['정원', `개설자 포함 ${m.max_members}명 · 선착순`],
+        ]
+          .filter(([, v]) => v)
+          .map(([k, v]) => (
+            <div key={k} className="flex items-start justify-between gap-4 border-b border-line py-3 last:border-0">
+              <span className="shrink-0 text-ink-2">{k}</span>
+              <b className="text-right">{v}</b>
+            </div>
+          ))}
+        {p?.registration_url ? (
+          <a href={p.registration_url} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-between gap-4 py-3 text-ink no-underline">
+            <span className="text-ink-2">수강 신청</span>
+            <b className="text-coral-ink">공식 신청 안내 확인 ↗</b>
+          </a>
+        ) : null}
+      </section>
+      <p className="m-0 -mt-1 text-[11px] leading-[1.5] text-ink-2">수강 신청은 공식 기관 사이트·전화·방문으로 각자 해요. 접수 여부와 남은 자리는 공식 안내에서 확인해 주세요.</p>
+
+      {/* 공개 회의 */}
+      <Qna
+        ref={qnaRef}
+        threads={qna.data ?? []}
+        loading={qna.loading}
+        creatorId={m.creator_id}
+        nameOf={nameOf}
+        canWrite={!!user}
+        onAsk={() => (user ? setSheet('question') : router.push(loginHref))}
+        onAnswer={async (qid, text) => {
+          if (!user) return '로그인이 필요해요';
+          try {
+            await postAnswer(m.id, user.id, qid, text);
+            qna.reload();
+            return null;
+          } catch (e) {
+            return e instanceof Error ? e.message : String(e);
+          }
+        }}
+      />
+
+      {/* 하단 버튼 */}
+      <div className="sticky bottom-0 -mx-[18px] mt-auto flex flex-col gap-2 bg-gradient-to-t from-surface from-70% to-transparent px-[18px] pt-4 pb-2">
+        {err && !sheet ? (
           <p role="alert" className="m-0 text-[13px] font-bold text-rose">
             {err}
           </p>
         ) : null}
         {!user ? (
-          <LinkButton href={`/login?next=${encodeURIComponent(`/m/${id}`)}`} variant="dark">
-            로그인하고 참여하기
-          </LinkButton>
+          <JdLinkButton href={loginHref} kind="dark">
+            로그인하고 작당하기
+          </JdLinkButton>
         ) : joined ? (
-          <Button variant="line" disabled={busy} onClick={() => act('leave')}>
-            {busy ? '처리 중…' : '참여 취소'}
-          </Button>
+          <div className="flex gap-2">
+            {!full ? (
+              <JdButton kind="dark" onClick={() => setSheet('invite')}>
+                이웃 부르기
+              </JdButton>
+            ) : null}
+            <JdButton kind="light" onClick={leave} disabled={busy}>
+              {busy ? '처리 중…' : '참여 취소'}
+            </JdButton>
+          </div>
         ) : (
-          <Button variant="dark" disabled={busy || closed || full} onClick={() => act('join')}>
-            {closed ? '모집이 마감됐어요' : full ? '정원이 다 찼어요' : busy ? '처리 중…' : '선착순 참여하기'}
-          </Button>
+          <JdButton kind="dark" onClick={() => setSheet('join')} disabled={closed || full}>
+            {closed ? '모집이 마감됐어요' : full ? '정원이 다 찼어요' : '나도 작당할래요'}
+          </JdButton>
         )}
-        {joined && user?.id === m.creator_id ? <Note>참여를 취소해도 모집글은 남아요.</Note> : null}
       </div>
 
-      <Qna meetupId={m.id} creatorId={m.creator_id} threads={qna.data ?? []} loading={qna.loading} error={qna.error} reload={qna.reload} nameOf={nameOf} />
-
-      <Celebration open={celebrate} title={p?.name ?? ''} registrationUrl={p?.registration_url ?? null} onClose={() => setCelebrate(false)} />
-    </>
+      <JoinSheet
+        open={sheet === 'join'}
+        onClose={() => setSheet(null)}
+        onJoin={join}
+        title={`${p?.name ?? ''} 작당`}
+        count={count}
+        max={m.max_members}
+        nickname={nickname}
+        busy={busy}
+        error={err}
+      />
+      <InviteSheet open={sheet === 'invite'} onClose={() => setSheet(null)} url={pageUrl} members={people} max={m.max_members} />
+      <QuestionSheet
+        open={sheet === 'question'}
+        onClose={() => setSheet(null)}
+        nickname={nickname}
+        onSubmit={async (text) => {
+          if (!user) return '로그인이 필요해요';
+          try {
+            await postQuestion(m.id, user.id, text);
+            setSheet(null);
+            qna.reload();
+            return null;
+          } catch (e) {
+            return e instanceof Error ? e.message : String(e);
+          }
+        }}
+      />
+      <SuccessScreen
+        open={success}
+        onClose={() => setSuccess(false)}
+        onQna={() => {
+          setSuccess(false);
+          setTimeout(() => qnaRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+        }}
+        members={people}
+        title={p?.name ?? ''}
+        schedule={p?.schedule_text ?? null}
+        registrationUrl={p?.registration_url ?? null}
+      />
+    </div>
   );
 }
 
+/* 공개 회의 카드 (피그마 02 하단): 접혀 있을 땐 첫 질문·답변만, '모두 보기'로 펼친다 */
 function Qna({
-  meetupId,
-  creatorId,
+  ref,
   threads,
   loading,
-  error,
-  reload,
+  creatorId,
   nameOf,
+  canWrite,
+  onAsk,
+  onAnswer,
 }: {
-  meetupId: string | number;
-  creatorId: string;
+  ref: Ref<HTMLElement>;
   threads: QnaThread[];
   loading: boolean;
-  error: string | null;
-  reload: () => void;
+  creatorId: string;
   nameOf: (uid: string) => string;
+  canWrite: boolean;
+  onAsk: () => void;
+  onAnswer: (qid: string | number, text: string) => Promise<string | null>;
 }) {
-  const { user } = useAuth();
-  const [question, setQuestion] = useState('');
+  const [all, setAll] = useState(false);
   const [replyTo, setReplyTo] = useState<string | null>(null);
-  const [answer, setAnswer] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [text, setText] = useState('');
   const [err, setErr] = useState<string | null>(null);
+  const shown = all ? threads : threads.slice(0, 1);
 
-  const send = async (e: FormEvent, kind: 'q' | 'a', qid?: string | number) => {
+  const submit = async (e: FormEvent, qid: string | number) => {
     e.preventDefault();
-    if (!user) return;
-    const text = (kind === 'q' ? question : answer).trim();
-    if (!text) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      if (kind === 'q') {
-        await postQuestion(meetupId, user.id, text);
-        setQuestion('');
-      } else {
-        await postAnswer(meetupId, user.id, qid!, text);
-        setAnswer('');
-        setReplyTo(null);
-      }
-      reload();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
+    if (!text.trim()) return;
+    const r = await onAnswer(qid, text.trim());
+    if (r) setErr(r);
+    else {
+      setText('');
+      setReplyTo(null);
+      setErr(null);
     }
   };
 
-  const who = (uid: string) => (
-    <span className="flex items-center gap-1 text-xs text-sub">
-      <b className="text-ink">{nameOf(uid)}</b>
-      {uid === creatorId ? <Badge>모집 연 사람</Badge> : null}
-    </span>
-  );
-
   return (
-    <section aria-label="공개 Q&A" className="mt-2">
-      <SectionTitle right={<span className="text-xs text-sub">누구나 볼 수 있어요</span>}>공개 Q&amp;A</SectionTitle>
-      <Note icon="help">개인 채팅 대신 공개 Q&A로 이야기해요. 연락처 같은 개인 정보는 적지 말아 주세요.</Note>
-
-      <div className="mt-3 flex flex-col gap-3">
-        {loading ? (
-          <Loading />
-        ) : error ? (
-          <p role="alert" className="text-sm text-rose">
-            {error}
-          </p>
-        ) : threads.length === 0 ? (
-          <p className="m-0 rounded-2xl bg-paper p-4 text-center text-[13px] text-sub">아직 질문이 없어요. 궁금한 걸 먼저 물어봐요!</p>
-        ) : (
-          threads.map((q) => (
-            <article key={String(q.id)} className="rounded-2xl border border-line bg-paper p-3.5">
-              <div className="flex items-center justify-between gap-2">
-                {who(q.author_id)}
-                <span className="text-[11px] text-sub">{timeAgo(q.created_at)}</span>
-              </div>
-              <p className="m-0 mt-1.5 text-sm leading-relaxed whitespace-pre-wrap">
-                <b className="mr-1 text-tangerine-ink">Q.</b>
-                {q.content}
-              </p>
-              {q.answers.map((a) => (
-                <div key={String(a.id)} className="mt-2.5 rounded-xl bg-cream p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    {who(a.author_id)}
-                    <span className="text-[11px] text-sub">{timeAgo(a.created_at)}</span>
-                  </div>
-                  <p className="m-0 mt-1 text-sm leading-relaxed whitespace-pre-wrap">
-                    <b className="mr-1 text-green">A.</b>
-                    {a.content}
-                  </p>
-                </div>
-              ))}
-              {user ? (
-                replyTo === String(q.id) ? (
-                  <form onSubmit={(e) => send(e, 'a', q.id)} className="mt-2.5 flex gap-2">
-                    <label className="flex-1">
-                      <span className="sr-only">답변</span>
-                      <input
-                        autoFocus
-                        value={answer}
-                        onChange={(e) => setAnswer(e.target.value)}
-                        maxLength={500}
-                        placeholder="답변 쓰기"
-                        className="min-h-11 w-full rounded-xl border border-line-strong bg-cream px-3 text-sm"
-                      />
-                    </label>
-                    <button type="submit" disabled={busy || !answer.trim()} className="min-h-11 rounded-xl bg-green px-3 text-sm font-bold text-white disabled:bg-mute disabled:text-[#6A726D]">
-                      등록
-                    </button>
-                  </form>
-                ) : (
-                  <button type="button" onClick={() => setReplyTo(String(q.id))} className="mt-2 min-h-9 text-[13px] font-bold text-green">
-                    답변 달기
-                  </button>
-                )
-              ) : null}
-            </article>
-          ))
-        )}
+    <section ref={ref} className="note-card flex scroll-mt-4 flex-col gap-[6px] px-4 py-[14px] leading-[1.4]" aria-label="공개 회의">
+      <div className="flex items-center justify-between">
+        <h2 className="m-0 text-[13px] font-black">공개 회의 {threads.length}</h2>
+        {threads.length > 1 ? (
+          <button type="button" onClick={() => setAll((v) => !v)} className="-my-3 min-h-11 text-[11px] text-ink-2">
+            {all ? '접기' : '모두 보기'}
+          </button>
+        ) : null}
       </div>
-
+      {loading ? (
+        <p className="m-0 text-[11px] text-ink-2">불러오는 중…</p>
+      ) : threads.length === 0 ? (
+        <p className="m-0 text-[12px] text-ink-2">아직 안건이 없어요. 궁금한 걸 먼저 물어봐요!</p>
+      ) : (
+        shown.map((q) => (
+          <div key={String(q.id)} className="flex flex-col gap-1 border-b border-line py-1.5 last:border-0">
+            <p className="m-0 text-[12px] font-bold">
+              Q. {q.content}
+              <span className="ml-1.5 text-[10px] font-normal text-ink-3">
+                {nameOf(q.author_id)}
+                {q.author_id === creatorId ? ' · 개설자' : ''} · {timeAgo(q.created_at)}
+              </span>
+            </p>
+            {(all ? q.answers : q.answers.slice(0, 1)).map((a) => (
+              <p key={String(a.id)} className="m-0 text-[11px] text-ink-2">
+                A. {a.content}
+                <span className="ml-1.5 text-[10px] text-ink-3">
+                  {nameOf(a.author_id)}
+                  {a.author_id === creatorId ? ' · 개설자' : ''}
+                </span>
+              </p>
+            ))}
+            {canWrite && all ? (
+              replyTo === String(q.id) ? (
+                <form onSubmit={(e) => submit(e, q.id)} className="mt-1 flex gap-2">
+                  <label className="flex-1">
+                    <span className="sr-only">답변</span>
+                    <input
+                      autoFocus
+                      value={text}
+                      onChange={(e) => setText(e.target.value.slice(0, 100))}
+                      placeholder="답변 쓰기"
+                      className="h-10 w-full rounded-[12px] border border-line px-3 text-[12px] placeholder:text-ink-3"
+                    />
+                  </label>
+                  <button type="submit" disabled={!text.trim()} className="h-10 rounded-[12px] bg-ink px-3 text-[12px] font-bold text-white disabled:opacity-45">
+                    등록
+                  </button>
+                </form>
+              ) : (
+                <button type="button" onClick={() => setReplyTo(String(q.id))} className="-my-2 min-h-10 self-start text-[11px] font-bold text-coral-ink">
+                  답변 달기
+                </button>
+              )
+            ) : null}
+          </div>
+        ))
+      )}
       {err ? (
-        <p role="alert" className="m-0 mt-2 text-[13px] font-bold text-rose">
+        <p role="alert" className="m-0 text-[12px] font-bold text-rose">
           {err}
         </p>
       ) : null}
-
-      {user ? (
-        <form onSubmit={(e) => send(e, 'q')} className="mt-3 flex flex-col gap-2">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-bold">질문하기</span>
-            <textarea
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              maxLength={500}
-              rows={3}
-              placeholder="예: 첫 수업 전에 같이 신청 방법 확인해요?"
-              className="rounded-[14px] border border-line-strong bg-paper p-3 text-sm"
-            />
-          </label>
-          <Button type="submit" variant="green" icon="send" disabled={busy || !question.trim()}>
-            질문 올리기
-          </Button>
-        </form>
-      ) : (
-        <p className="m-0 mt-3 text-center text-[13px] text-sub">질문과 답변은 로그인한 뒤 쓸 수 있어요.</p>
-      )}
+      <button type="button" onClick={onAsk} className="mt-1 flex min-h-10 items-center justify-center rounded-[14px] border border-dashed border-line text-[12px] font-bold text-ink">
+        {canWrite ? '+ 질문하기' : '로그인하고 질문하기'}
+      </button>
     </section>
   );
 }

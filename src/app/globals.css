@@ -1,38 +1,42 @@
 @import "tailwindcss";
 
-/* 작당모임 디자인 토큰 (v4: 장난꾸러기 작당이)
-   - 바탕: 따뜻한 크림, 글자: 진한 브라운 블랙
-   - 포인트: 오렌지 한 가지
-   - 기존 클래스명(green, mint 등)은 그대로 두고 값만 바꿨다.
-     green = 주 버튼/강조(진한 잉크), mint = 연한 피치 배경 */
+/* 작당모임 디자인 토큰 — 피그마 'MVP 화면' 변수 그대로
+   ink #2e2420 · ink-2 #8c7b6e · ink-3 #b9aa9c · line #f0e3d6 · bg #fbf4ec
+   peach #fce7d8 · peach-strong #fdddcb · coral #ff7a59 · coral-ink #e2613f · table #f2d6b8 */
 @theme {
-  --font-display: "Jua", "Pretendard Variable", sans-serif;
-  --font-sans: "Pretendard Variable", Pretendard, system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif;
+  --font-sans: "Noto Sans KR", system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif;
 
-  --color-cream: #FFF9F1;
-  --color-backdrop: #F1E9DF;
+  --color-ink: #2E2420;
+  --color-ink-2: #8C7B6E;
+  --color-ink-3: #B9AA9C;
+  --color-line: #F0E3D6;
+  --color-bg: #FBF4EC;
+  --color-surface: #FFFFFF;
+  --color-peach: #FCE7D8;
+  --color-peach-strong: #FDDDCB;
+  --color-coral: #FF7A59;
+  --color-coral-ink: #E2613F;
+  --color-table: #F2D6B8;
+  --color-rose: #C0392B;
+
+  /* 예전 화면에서 쓰던 이름 → 새 토큰으로 연결 (강좌·내 모임·내 정보·로그인 화면용) */
+  --color-cream: #FBF4EC;
+  --color-backdrop: #F3EADF;
   --color-paper: #FFFFFF;
-  --color-line: #F0E6DA;
-  --color-line-strong: #E3D6C7;
-  --color-ink: #2B2420;
-  --color-sub: #8C8077;
-  --color-mute: #FBF3EA;
+  --color-line-strong: #E6D6C6;
+  --color-sub: #8C7B6E;
+  --color-mute: #FBF4EC;
+  --color-green: #2E2420;
+  --color-green-deep: #1C1512;
+  --color-mint: #FCE7D8;
+  --color-mint-ink: #E2613F;
+  --color-tangerine: #FF7A59;
+  --color-tangerine-soft: #FDDDCB;
+  --color-tangerine-ink: #E2613F;
+  --color-sky: #EAF4FB;
+  --color-sky-ink: #2F5F80;
 
-  --color-green: #2B2420;
-  --color-green-deep: #1A1512;
-  --color-mint: #FFF1E3;
-  --color-mint-ink: #E2673A;
-
-  --color-tangerine: #FF8A5B;
-  --color-tangerine-soft: #FFE6D8;
-  --color-tangerine-ink: #C9552A;
-
-  --color-sky: #EAF1F8;
-  --color-sky-ink: #24476B;
-  --color-rose: #B4372C;
-
-  --radius-card: 24px;
-  --shadow-phone: 0 24px 48px -24px rgb(30 38 34 / 0.35);
+  --shadow-phone: 0 8px 24px 0 rgb(46 36 31 / 0.08);
 }
 
 html, body { height: 100%; }
@@ -45,32 +49,14 @@ body {
   word-break: keep-all;
 }
 
-/* 쪽지 카드: 위쪽에 살짝 접힌 자국 */
+/* 흰 카드: 테두리 line, 둥글기 20 */
 .note-card {
-  position: relative;
-  background: var(--color-paper);
+  background: var(--color-surface);
   border: 1px solid var(--color-line);
-  border-radius: var(--radius-card);
-}
-.note-card::before {
-  content: "";
-  position: absolute;
-  top: -1px; right: 28px;
-  width: 44px; height: 14px;
-  background: var(--color-tangerine-soft);
-  border-radius: 0 0 6px 6px;
-  opacity: .9;
-}
-
-/* 손글씨 느낌 밑줄 */
-.scribble {
-  background-image: linear-gradient(transparent 62%, rgb(255 138 91 / .35) 62%, rgb(255 138 91 / .35) 90%, transparent 90%);
+  border-radius: 20px;
 }
 
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
-:focus-visible { outline: 3px solid var(--color-tangerine); outline-offset: 2px; border-radius: 8px; }
-
-/* 제목은 둥글고 장난스러운 주아체 (굵기는 한 가지라 400으로 고정) */
-h1, h2, .font-display { font-family: var(--font-display); font-weight: 400 !important; letter-spacing: -0.01em; }
+:focus-visible { outline: 3px solid var(--color-coral); outline-offset: 2px; border-radius: 8px; }

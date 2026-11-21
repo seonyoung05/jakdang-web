@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from 'next';
-import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
-// 제목용 주아체: 구글 폰트 서버 대신 npm 패키지로 직접 담아 둔다 (오프라인·빌드 환경에서도 안전)
-import '@fontsource/jua';
+// 피그마와 같은 Noto Sans KR. 구글 폰트 서버 대신 npm 패키지로 담아 둔다 (오프라인·빌드 환경에서도 안전)
+import '@fontsource/noto-sans-kr/400.css';
+import '@fontsource/noto-sans-kr/500.css';
+import '@fontsource/noto-sans-kr/700.css';
+import '@fontsource/noto-sans-kr/900.css';
 import './globals.css';
 import { AuthProvider } from '@/lib/auth';
 import AppShell from '@/components/AppShell';
@@ -16,7 +18,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#FFF9F1',
+  themeColor: '#FBF4EC',
 };
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {

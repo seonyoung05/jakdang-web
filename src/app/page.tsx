@@ -1,117 +1,128 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { DISTRICT, listMeetups, memberIndex } from '@/lib/api';
 import { useAuth, useLoad } from '@/lib/auth';
+import Jakdangi from '@/components/Jakdangi';
 import MeetupCard from '@/components/MeetupCard';
-import Ddari from '@/components/Ddari';
-import Icon from '@/components/Icon';
-import { Chip, IconButton, LinkButton, Loading, SectionTitle } from '@/components/ui';
+import TableScene from '@/components/TableScene';
+import { JdLinkButton } from '@/components/jd';
+import { Loading } from '@/components/ui';
 
-type Filter = 'open' | 'all' | 'mine';
-
+/** 피그마 01 메인 */
 export default function HomePage() {
-  const { ready, configured, user, nickname } = useAuth();
-  const [filter, setFilter] = useState<Filter>('open');
+  const { ready, configured, user, profile } = useAuth();
+  const [showAll, setShowAll] = useState(false);
 
   const { data, loading, error, reload } = useLoad(async () => {
     if (!configured) return { meetups: [], members: null };
     const meetups = await listMeetups();
-    // 참여 인원은 로그인해야 읽을 수 있다
     const members = user ? await memberIndex(meetups.map((m) => m.id)) : null;
     return { meetups, members };
   }, [configured, user?.id]);
 
-  const list = useMemo(() => {
+  const rows = useMemo(() => {
     if (!data) return [];
-    return data.meetups
-      .map((m) => {
-        const ids = data.members?.get(String(m.id)) ?? null;
-        return { m, count: data.members ? (ids?.length ?? 0) : null, mine: !!user && !!ids?.includes(user.id) };
-      })
-      .filter(({ m, count, mine }) => {
-        if (filter === 'mine') return mine;
-        if (filter === 'open') return m.status === 'OPEN' && (count === null || count < m.max_members);
-        return true;
-      });
-  }, [data, filter, user]);
+    return data.meetups.map((m) => {
+      const ids = data.members ? (data.members.get(String(m.id)) ?? []) : null;
+      const remaining = ids ? m.max_members - ids.length : null;
+      return { m, ids, remaining, open: m.status === 'OPEN' && (remaining === null || remaining > 0) };
+    });
+  }, [data]);
+
+  const open = rows.filter((r) => r.open).sort((a, b) => (a.remaining ?? 99) - (b.remaining ?? 99));
+  const list = showAll ? rows : open;
+  const almost = open.some((r) => r.remaining === 1);
+  const neighbors = data?.members ? open.reduce((n, r) => n + (r.ids?.length ?? 0), 0) : null;
 
   return (
-    <>
-      <header className="mb-4 flex items-start justify-between gap-2">
-        <div>
-          <p className="m-0 text-[13px] text-sub">
-            {DISTRICT}
-            {user && nickname ? ` · ${nickname}님` : ''}
-          </p>
-          <h1 className="m-0 mt-0.5 text-[22px] leading-snug font-black tracking-tight">
-            동네 강좌, 이웃과
-            <br />
-            <span className="scribble">같이 들어요</span>
-          </h1>
+    <div className="flex flex-col gap-[14px]">
+      {/* 상단: 로고 + 동네 */}
+      <header className="flex items-center justify-between">
+        <div className="flex items-center gap-1">
+          <span className="flex">
+            <span className="-mr-[10px]">
+              <Jakdangi color="peach" mood="sly" size={30} />
+            </span>
+            <Jakdangi color="yellow" mood="sly" size={30} />
+          </span>
+          <h1 className="m-0 text-[19px] leading-[1.4] font-black">작당모임</h1>
         </div>
-        <IconButton label="새로고침" icon="refresh" onClick={reload} />
+        <span className="flex items-center gap-1 rounded-full border border-line bg-surface px-3 py-1.5 text-[12px] leading-[1.4] font-bold">
+          <span className="text-[8px] text-coral" aria-hidden="true">
+            ●
+          </span>
+          {profile?.neighborhood_name || DISTRICT}
+        </span>
       </header>
 
-      <section className="flex items-start gap-3 rounded-[18px] bg-mint px-4 py-3.5" aria-label="서비스 안내">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-paper text-green">
-          <Icon name="book" size={20} />
-        </span>
-        <div className="min-w-0 flex-1 text-xs leading-relaxed text-mint-ink">
-          <b className="block text-sm text-ink">공식 교육 프로그램만 모집할 수 있어요</b>
-          작당모임은 함께할 이웃을 모아 줘요. 수강 신청은 각자 공식 기관 안내에 따라 해 주세요.
-        </div>
+      {/* 히어로 */}
+      <section className="flex flex-col gap-[6px] rounded-[24px] bg-peach p-[18px]" aria-label="우리 동네 작당 현황">
+        <h2 className="m-0 text-[21px] leading-[1.4] font-black">
+          지금 우리 동네에서
+          <br />
+          {neighbors !== null ? `작당 중인 이웃 ${neighbors}명` : `열린 작당 ${open.length}개`}
+        </h2>
+        <p className="m-0 text-[12px] leading-[1.4] text-ink-2">공식 강좌, 혼자 말고 같이 들어요</p>
+        <TableScene
+          height={160}
+          label="테이블에 둘러앉은 작당이들"
+          seats={[
+            { id: 'h1', color: 'peach' },
+            { id: 'h2', color: 'yellow' },
+            { id: 'h3', color: 'sky' },
+            { id: 'h4', color: 'peach' },
+            { id: 'h5', color: 'yellow' },
+            null,
+          ]}
+          mood="sly"
+          bubbles={[{ seat: 2, text: '쉿!' }]}
+        />
       </section>
 
-      {ready && !user && configured ? (
-        <div className="mt-3 flex items-center justify-between gap-3 rounded-[18px] border border-line bg-paper px-4 py-3">
-          <span className="text-[13px] text-sub">로그인하면 참여 인원 확인과 참여가 돼요</span>
-          <LinkButton href="/login" variant="dark" className="!min-h-10 !w-auto !rounded-xl !px-3 !text-[13px]">
+      {ready && configured && !user ? (
+        <div className="flex items-center justify-between gap-3 rounded-[20px] border border-line px-4 py-3">
+          <span className="text-[12px] text-ink-2">로그인하면 함께할 이웃이 보여요</span>
+          <Link href="/login" className="inline-flex min-h-10 items-center rounded-[20px] bg-ink px-4 text-[13px] font-bold text-white no-underline">
             로그인
-          </LinkButton>
+          </Link>
         </div>
       ) : null}
 
-      <SectionTitle>모집 중인 작당</SectionTitle>
-      <div className="no-scrollbar -mx-[18px] mb-3 flex gap-1.5 overflow-x-auto px-[18px]" role="group" aria-label="보기">
-        <Chip on={filter === 'open'} onClick={() => setFilter('open')}>
-          모집 중
-        </Chip>
-        <Chip on={filter === 'all'} onClick={() => setFilter('all')}>
-          전체
-        </Chip>
-        {user ? (
-          <Chip on={filter === 'mine'} onClick={() => setFilter('mine')}>
-            내가 참여한
-          </Chip>
-        ) : null}
+      {/* 목록 */}
+      <div className="flex items-center justify-between leading-[1.4]">
+        <h2 className="m-0 text-[16px] font-black">{showAll ? '모든 작당' : almost ? '한 명만 더 오면 시작해요' : '모집 중인 작당'}</h2>
+        <button type="button" onClick={() => setShowAll((v) => !v)} className="-my-3 min-h-11 text-[12px] font-medium text-ink-2">
+          {showAll ? '모집 중만' : '전체보기'}
+        </button>
       </div>
 
       {loading || !ready ? (
         <Loading />
       ) : error ? (
-        <div role="alert" className="rounded-2xl bg-[#FBE4E1] p-4 text-sm text-rose">
+        <div role="alert" className="rounded-[20px] bg-peach p-4 text-[13px] text-coral-ink">
           {error}
           <button type="button" onClick={reload} className="ml-2 font-bold underline">
             다시 시도
           </button>
         </div>
       ) : list.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-[22px] border border-dashed border-line-strong bg-paper px-6 py-8 text-center">
-          <Ddari mood="sleepy" size={60} />
-          <b className="text-[15px]">{filter === 'mine' ? '아직 참여한 모집이 없어요' : '아직 열린 모집이 없어요'}</b>
-          <p className="m-0 text-[13px] text-sub">관심 있는 강좌로 첫 모집을 열어 볼까요?</p>
-          <LinkButton href="/programs" variant="dark" icon="book" className="!w-auto">
-            강좌 보러 가기
-          </LinkButton>
+        <div className="flex flex-col items-center gap-3 rounded-[20px] border border-dashed border-line px-6 py-8 text-center">
+          <Jakdangi empty size={56} />
+          <b className="text-[15px]">아직 열린 작당이 없어요</b>
+          <p className="m-0 text-[12px] text-ink-2">관심 있는 공식 강좌로 첫 작당을 꾸며 볼까요?</p>
+          <JdLinkButton href="/programs" kind="dark" className="!w-auto">
+            강좌 찾아보기
+          </JdLinkButton>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
-          {list.map(({ m, count, mine }) => (
-            <MeetupCard key={String(m.id)} m={m} count={count} mine={mine} />
+        <div className="flex flex-col gap-[14px]">
+          {list.map(({ m, ids }) => (
+            <MeetupCard key={String(m.id)} m={m} memberIds={ids} />
           ))}
         </div>
       )}
-    </>
+    </div>
   );
 }

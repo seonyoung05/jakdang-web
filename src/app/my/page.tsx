@@ -3,7 +3,7 @@
 import { getMeetupsByIds, memberIndex, myMeetupIds } from '@/lib/api';
 import { useAuth, useLoad } from '@/lib/auth';
 import MeetupCard from '@/components/MeetupCard';
-import Ddari from '@/components/Ddari';
+import Jakdangi from '@/components/Jakdangi';
 import { LinkButton, Loading, SectionTitle } from '@/components/ui';
 
 export default function MyMeetupsPage() {
@@ -20,7 +20,7 @@ export default function MyMeetupsPage() {
   if (!user) {
     return (
       <div className="flex flex-col items-center gap-3 pt-16 text-center">
-        <Ddari mood="look" />
+        <Jakdangi color="yellow" mood="whisper" size={64} />
         <b className="text-[17px]">로그인하면 내 모임이 보여요</b>
         <LinkButton href="/login?next=/my" variant="dark" className="!w-auto">
           로그인하러 가기
@@ -29,13 +29,14 @@ export default function MyMeetupsPage() {
     );
   }
 
-  const rows = (data?.meetups ?? []).map((m) => ({ m, count: data?.members ? (data.members.get(String(m.id))?.length ?? 0) : null }));
+  const rows = (data?.meetups ?? []).map((m) => ({ m, ids: data?.members ? (data.members.get(String(m.id)) ?? []) : null }));
   const created = rows.filter((r) => r.m.creator_id === user.id);
   const joined = rows.filter((r) => r.m.creator_id !== user.id);
 
   return (
     <>
       <h1 className="m-0 text-[22px] font-black">내 모임</h1>
+      <p className="m-0 mt-1 text-[12px] text-ink-2">공개 회의는 각 작당 상세에서 볼 수 있어요</p>
       {loading ? (
         <Loading />
       ) : error ? (
@@ -47,7 +48,7 @@ export default function MyMeetupsPage() {
         </div>
       ) : rows.length === 0 ? (
         <div className="mt-10 flex flex-col items-center gap-3 text-center">
-          <Ddari mood="sleepy" />
+          <Jakdangi empty size={64} />
           <b>아직 참여한 모임이 없어요</b>
           <LinkButton href="/" variant="dark" className="!w-auto">
             모집 보러 가기
@@ -65,8 +66,8 @@ export default function MyMeetupsPage() {
                 {g.title} <span className="text-green">{g.items.length}</span>
               </SectionTitle>
               <div className="flex flex-col gap-3">
-                {g.items.map(({ m, count }) => (
-                  <MeetupCard key={String(m.id)} m={m} count={count} />
+                {g.items.map(({ m, ids }) => (
+                  <MeetupCard key={String(m.id)} m={m} memberIds={ids} />
                 ))}
               </div>
             </section>

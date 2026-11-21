@@ -1,118 +1,82 @@
 /**
- * 작당이: 작당모임 캐릭터. 역할은 없고, 참여 순서(index)대로 색이 돌아가며 붙는다.
- * - sly: 찡긋 (기본)
- * - whisper: 속닥속닥 (기본, sly와 번갈아 사용)
- * - joy: 만세 (작당 성공)
- * - sleepy: 눈 감음 (빈 화면)
- * - empty: 빈자리 (점선)
+ * 작당이 (피그마 'JD/작당이 (임시)' 컴포넌트).
+ * 아트는 public/jakdangi/*.svg — 최종 캐릭터가 나오면 이 SVG 파일만 바꾸면 전 화면에 반영된다.
+ * - 찡긋(sly) = 기본, 속닥속닥(whisper) = 방금 합류, 만세(joy) = 작당 성공, 빈자리(empty) = 아직 안 온 자리
  */
-export type JakdangiMood = 'sly' | 'whisper' | 'joy' | 'sleepy' | 'empty';
+export type JakdangiColor = 'peach' | 'yellow' | 'sky';
+export type JakdangiMood = 'sly' | 'whisper' | 'joy';
 
-export const JAKDANGI_COLORS = ['#FFC9AC', '#FFE07D', '#B8DEF2'];
-const INK = '#2B2420';
+const COLORS: JakdangiColor[] = ['peach', 'yellow', 'sky'];
 
-export function jakdangiColor(index: number) {
-  return JAKDANGI_COLORS[((index % JAKDANGI_COLORS.length) + JAKDANGI_COLORS.length) % JAKDANGI_COLORS.length];
+/** 같은 사람은 어느 화면에서나 같은 색이 되도록 id로 색을 정한다 */
+export function colorFor(id: string | number): JakdangiColor {
+  const s = String(id);
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return COLORS[h % COLORS.length];
 }
 
-/** 참여 순서로 기본 표정을 정한다 (짝수 찡긋, 홀수 속닥) */
-export function jakdangiMood(index: number): JakdangiMood {
-  return index % 2 ? 'whisper' : 'sly';
+export function colorAt(index: number): JakdangiColor {
+  return COLORS[((index % 3) + 3) % 3];
 }
 
 export default function Jakdangi({
+  color = 'peach',
   mood = 'sly',
-  index = 0,
-  color,
-  size = 48,
+  empty = false,
+  size = 30,
   label,
+  className = '',
 }: {
+  color?: JakdangiColor;
   mood?: JakdangiMood;
-  index?: number;
-  color?: string;
+  empty?: boolean;
   size?: number;
   label?: string;
+  className?: string;
 }) {
-  const fill = color ?? jakdangiColor(index);
-  const a11y = label ? { role: 'img' as const, 'aria-label': label } : { 'aria-hidden': true as const };
-
-  if (mood === 'empty') {
-    return (
-      <svg width={size} height={size} viewBox="-30 -56 60 62" {...a11y}>
-        <path
-          d="M-21 -19 Q-21 -49 0 -49 Q21 -49 21 -19 Q21 -3 0 -3 Q-21 -3 -21 -19Z"
-          fill="#fff"
-          fillOpacity={0.75}
-          stroke="#D8C9BA"
-          strokeWidth={1.6}
-          strokeDasharray="4 4"
-        />
-        <path d="M-4.5 -30 q4.5 -7 9 0 q0 4.5 -4.5 6.5 v3 M0 -15.5 v.5" stroke="#CBB9A8" strokeWidth={2.2} fill="none" strokeLinecap="round" />
-      </svg>
-    );
-  }
-
-  const eye = (x: number) => (
-    <>
-      <ellipse cx={x} cy={-29} rx={3.2} ry={3.9} fill={INK} />
-      <circle cx={x - 1} cy={-30.4} r={1.25} fill="#fff" />
-    </>
-  );
-
+  const src = empty ? '/jakdangi/empty.svg' : `/jakdangi/${color}-${mood}.svg`;
   return (
-    <svg width={size} height={size} viewBox="-30 -56 60 62" style={{ overflow: 'visible' }} {...a11y}>
-      <ellipse cx={0} cy={2} rx={20} ry={3.5} fill={INK} opacity={0.08} />
-      {/* 팔 */}
-      {mood === 'joy' ? (
-        <>
-          <ellipse cx={-24} cy={-38} rx={5} ry={8} transform="rotate(-25 -24 -38)" fill={fill} />
-          <ellipse cx={24} cy={-38} rx={5} ry={8} transform="rotate(25 24 -38)" fill={fill} />
-        </>
-      ) : (
-        <>
-          <ellipse cx={-21} cy={-16} rx={4.5} ry={6.5} transform="rotate(20 -21 -16)" fill={fill} />
-          {mood !== 'whisper' ? <ellipse cx={21} cy={-16} rx={4.5} ry={6.5} transform="rotate(-20 21 -16)" fill={fill} /> : null}
-        </>
-      )}
-      {/* 발 */}
-      <ellipse cx={-9} cy={-1} rx={6.5} ry={3.8} fill={fill} />
-      <ellipse cx={9} cy={-1} rx={6.5} ry={3.8} fill={fill} />
-      <ellipse cx={-9} cy={-1} rx={6.5} ry={3.8} fill={INK} opacity={0.1} />
-      <ellipse cx={9} cy={-1} rx={6.5} ry={3.8} fill={INK} opacity={0.1} />
-      {/* 몸 */}
-      <path d="M-22 -19 Q-22 -50 0 -50 Q22 -50 22 -19 Q22 -2 0 -2 Q-22 -2 -22 -19Z" fill={fill} />
-      <ellipse cx={-12} cy={-40} rx={5} ry={3} fill="#fff" opacity={0.45} />
-      {/* 얼굴 */}
-      {mood === 'joy' ? (
-        <>
-          <path d="M-11 -28 q3.5 -4.5 7 0 M4 -28 q3.5 -4.5 7 0" stroke={INK} strokeWidth={2.3} fill="none" strokeLinecap="round" />
-          <path d="M-6 -22 Q0 -12 6 -22Z" fill={INK} />
-          <path d="M-3 -17.5 Q0 -15 3 -17.5" stroke="#FF7A6B" strokeWidth={2.2} strokeLinecap="round" />
-        </>
-      ) : mood === 'sleepy' ? (
-        <>
-          <path d="M-11 -29 q3.5 3 7 0 M4 -29 q3.5 3 7 0" stroke={INK} strokeWidth={2.3} fill="none" strokeLinecap="round" />
-          <circle cx={0} cy={-20} r={2} fill={INK} />
-        </>
-      ) : mood === 'sly' ? (
-        <>
-          <path d="M-11.5 -29 q3.5 -4 7 0" stroke={INK} strokeWidth={2.3} fill="none" strokeLinecap="round" />
-          {eye(8)}
-          <path d="M-5 -21 q2.5 3 5 0 q2.5 3 5 0" stroke={INK} strokeWidth={2} fill="none" strokeLinecap="round" />
-          <path d="M1.5 -19.6 q1.6 3.4 3.6 .3" fill="#FF7A6B" />
-        </>
-      ) : (
-        <>
-          {eye(-6)}
-          {eye(9)}
-          <path d="M-3 -21 q2.5 3 5 0 q2.5 3 5 0" stroke={INK} strokeWidth={2} fill="none" strokeLinecap="round" />
-          <ellipse cx={16} cy={-22} rx={6} ry={7} fill={fill} />
-          <ellipse cx={16} cy={-22} rx={6} ry={7} fill={INK} opacity={0.06} />
-        </>
-      )}
-      {/* 볼터치 */}
-      <ellipse cx={-14} cy={-21} rx={4.6} ry={2.7} fill="#FF6E5C" opacity={0.38} />
-      <ellipse cx={14} cy={-21} rx={4.6} ry={2.7} fill="#FF6E5C" opacity={0.38} />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      width={size}
+      height={size}
+      alt={label ?? ''}
+      aria-hidden={label ? undefined : true}
+      draggable={false}
+      className={`block shrink-0 select-none ${className}`}
+      style={{ width: size, height: size }}
+    />
+  );
+}
+
+/** 겹쳐 놓은 작당이 줄 (메인 카드, 꾸미기 미리보기) */
+export function JakdangiRow({
+  members,
+  max,
+  size = 30,
+  overlap = 3,
+  limit = 8,
+  mood = 'sly',
+}: {
+  members: { id: string; name: string }[];
+  max: number;
+  size?: number;
+  overlap?: number;
+  limit?: number;
+  mood?: JakdangiMood;
+}) {
+  const shown = Math.min(max, limit);
+  const cells = Array.from({ length: shown }, (_, i) => members[i]);
+  return (
+    <div className="flex items-center" role="img" aria-label={`정원 ${max}명 중 ${members.length}명`}>
+      {cells.map((m, i) => (
+        <span key={i} style={{ marginRight: i === shown - 1 ? 0 : -overlap }}>
+          {m ? <Jakdangi color={colorFor(m.id)} mood={mood} size={size} /> : <Jakdangi empty size={size} />}
+        </span>
+      ))}
+      {max > shown ? <span className="ml-1.5 text-[11px] font-bold text-ink-2">+{max - shown}</span> : null}
+    </div>
   );
 }
