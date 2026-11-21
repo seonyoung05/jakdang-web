@@ -22,7 +22,7 @@ export default function Celebration({
   useEffect(() => {
     if (!open) return;
     if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      confetti({ particleCount: 120, spread: 80, origin: { y: 0.55 }, colors: ['#F08A3C', '#2E6B52', '#FAF8F3', '#E6A03A'] });
+      confetti({ particleCount: 120, spread: 80, origin: { y: 0.55 }, colors: ['#FF8A5B', '#FFE07D', '#B8DEF2', '#FFC9AC'] });
     }
   }, [open]);
 
@@ -41,7 +41,7 @@ export default function Celebration({
           >
             <Ddari mood="cheer" size={64} />
             <h2 className="m-0 text-[26px] font-black">작당 성공!</h2>
-            <p className="m-0 text-sm leading-relaxed text-[#D3EBDD]">
+            <p className="m-0 text-sm leading-relaxed text-[#F3E6DA]">
               {title}
               <br />
               정원이 다 모였어요. 이제 각자 공식 기관에서 수강 신청을 해 주세요.

@@ -6,7 +6,7 @@ import { animate } from 'motion/react';
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import Icon, { type IconName } from './Icon';
 
-const AV = ['#F6D9A8', '#CDE6F5', '#F3C9C4', '#D6E9C6', '#E2D4F0', '#FBE3B8', '#C9E4DE'];
+const AV = ['#FFC9AC', '#FFE07D', '#B8DEF2', '#FFD9C7', '#FFEFB5', '#D6ECF8'];
 export function avatarColor(name: string) {
   let h = 0;
   for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;

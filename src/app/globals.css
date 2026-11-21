@@ -1,34 +1,37 @@
 @import "tailwindcss";
 
-/* 작당모임 디자인 토큰
-   - 신뢰: 크림 바탕 + 짙은 초록
-   - 장난기: 귤색 포인트 한 가지 (도장, 따리, 강조선) */
+/* 작당모임 디자인 토큰 (v4: 장난꾸러기 작당이)
+   - 바탕: 따뜻한 크림, 글자: 진한 브라운 블랙
+   - 포인트: 오렌지 한 가지
+   - 기존 클래스명(green, mint 등)은 그대로 두고 값만 바꿨다.
+     green = 주 버튼/강조(진한 잉크), mint = 연한 피치 배경 */
 @theme {
+  --font-display: "Jua", "Pretendard Variable", sans-serif;
   --font-sans: "Pretendard Variable", Pretendard, system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif;
 
-  --color-cream: #FAF8F3;
-  --color-backdrop: #EFEBE3;
+  --color-cream: #FFF9F1;
+  --color-backdrop: #F1E9DF;
   --color-paper: #FFFFFF;
-  --color-line: #ECE7DC;
-  --color-line-strong: #DDD7CA;
-  --color-ink: #1E2622;
-  --color-sub: #5E6862;
-  --color-mute: #F3F0E9;
+  --color-line: #F0E6DA;
+  --color-line-strong: #E3D6C7;
+  --color-ink: #2B2420;
+  --color-sub: #8C8077;
+  --color-mute: #FBF3EA;
 
-  --color-green: #2E6B52;
-  --color-green-deep: #1F4F3C;
-  --color-mint: #E3F0E8;
-  --color-mint-ink: #1F5440;
+  --color-green: #2B2420;
+  --color-green-deep: #1A1512;
+  --color-mint: #FFF1E3;
+  --color-mint-ink: #E2673A;
 
-  --color-tangerine: #F08A3C;
-  --color-tangerine-soft: #FDEBDC;
-  --color-tangerine-ink: #8A3F0A;
+  --color-tangerine: #FF8A5B;
+  --color-tangerine-soft: #FFE6D8;
+  --color-tangerine-ink: #C9552A;
 
   --color-sky: #EAF1F8;
   --color-sky-ink: #24476B;
   --color-rose: #B4372C;
 
-  --radius-card: 22px;
+  --radius-card: 24px;
   --shadow-phone: 0 24px 48px -24px rgb(30 38 34 / 0.35);
 }
 
@@ -61,10 +64,13 @@ body {
 
 /* 손글씨 느낌 밑줄 */
 .scribble {
-  background-image: linear-gradient(transparent 62%, rgb(240 138 60 / .35) 62%, rgb(240 138 60 / .35) 90%, transparent 90%);
+  background-image: linear-gradient(transparent 62%, rgb(255 138 91 / .35) 62%, rgb(255 138 91 / .35) 90%, transparent 90%);
 }
 
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
 :focus-visible { outline: 3px solid var(--color-tangerine); outline-offset: 2px; border-radius: 8px; }
+
+/* 제목은 둥글고 장난스러운 주아체 (굵기는 한 가지라 400으로 고정) */
+h1, h2, .font-display { font-family: var(--font-display); font-weight: 400 !important; letter-spacing: -0.01em; }

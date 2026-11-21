@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@fontsource/jua": "^5.3.0",
     "@supabase/supabase-js": "^2.119.2",
     "canvas-confetti": "^1.9.4",
     "motion": "^14.14.0",

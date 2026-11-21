@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
+// 제목용 주아체: 구글 폰트 서버 대신 npm 패키지로 직접 담아 둔다 (오프라인·빌드 환경에서도 안전)
+import '@fontsource/jua';
 import './globals.css';
 import { AuthProvider } from '@/lib/auth';
 import AppShell from '@/components/AppShell';
@@ -14,7 +16,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#FAF8F3',
+  themeColor: '#FFF9F1',
 };
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
