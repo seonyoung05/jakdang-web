@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { Meetup } from '@/lib/types';
+import { viewOf } from '@/lib/meetupView';
 import { JakdangiRow } from './Jakdangi';
 import { JdPill } from './jd';
 
@@ -23,16 +24,16 @@ export function timeAgo(iso: string): string {
 
 /** 피그마 01 메인의 모집 카드. memberIds가 null이면 로그인 전이라 참여 현황을 모르는 상태. */
 export default function MeetupCard({ m, memberIds }: { m: Meetup; memberIds: string[] | null }) {
-  const p = m.programs;
+  const v = viewOf(m);
   const count = memberIds ? memberIds.length : null;
   const st = meetupState(m, count);
-  const sub = [p?.schedule_text, p?.venue].filter(Boolean).join(' · ');
+  const sub = [v.when, v.place].filter(Boolean).join(' · ');
 
   return (
     <Link href={`/m/${m.id}`} className="note-card flex flex-col gap-[10px] px-4 py-[14px] text-ink no-underline">
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-[2px] leading-[1.4]">
-          <h3 className="m-0 text-[15px] font-bold">{p?.name ?? '프로그램 정보 없음'}</h3>
+          <h3 className="m-0 text-[15px] font-bold">{v.title}</h3>
           {sub ? <p className="m-0 truncate text-[11px] text-ink-2">{sub}</p> : null}
         </div>
         <JdPill style={st.style}>{st.label}</JdPill>

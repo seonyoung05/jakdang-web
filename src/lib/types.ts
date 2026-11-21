@@ -27,16 +27,44 @@ export interface Program {
   registration_end_at?: string | null;
 }
 
+/** 공공기관 공식 공간 (07 마이그레이션) */
+export interface Space {
+  id: Id;
+  source_name?: string | null;
+  external_id?: string | null;
+  name: string;
+  venue: string | null;
+  district: string | null;
+  address: string | null;
+  /** 공식 대관 안내 페이지 */
+  reservation_url: string | null;
+  reservation_info: string | null;
+  /** 공간 수용 인원 (모집 정원은 이걸 넘으면 안 됨) */
+  capacity: number | null;
+  usage_notes: string | null;
+}
+
 export type MeetupStatus = 'OPEN' | 'CLOSED';
+/** CLASS = 교육 같이 듣기, SPACE = 공간 함께 쓰기 */
+export type MeetupType = 'CLASS' | 'SPACE';
 
 export interface Meetup {
   id: Id;
-  program_id: Id;
+  /** 07 이전 DB에는 없으므로 없으면 CLASS로 본다 */
+  meetup_type?: MeetupType | null;
+  program_id: Id | null;
+  space_id?: Id | null;
+  /** SPACE: 함께할 활동 이름 */
+  activity_title?: string | null;
+  /** SPACE: 희망 이용 일시 (예약 확정 아님) */
+  proposed_start_at?: string | null;
+  proposed_end_at?: string | null;
   creator_id: string;
   max_members: number;
   status: MeetupStatus;
   created_at: string;
-  programs: Pick<Program, 'id' | 'name' | 'venue' | 'schedule_text'> & Partial<Program> | null;
+  programs: (Pick<Program, 'id' | 'name' | 'venue' | 'schedule_text'> & Partial<Program>) | null;
+  spaces?: (Pick<Space, 'id' | 'name' | 'venue'> & Partial<Space>) | null;
 }
 
 export interface MeetupMember {
