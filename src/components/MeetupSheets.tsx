@@ -249,3 +249,163 @@ export function QuestionSheet({ open, onClose, onSubmit, nickname }: { open: boo
     </Sheet>
   );
 }
+
+/* ───────── 11 신청 캡처 올리기 ───────── */
+export function ProofSheet({
+  open,
+  onClose,
+  onUpload,
+  programName,
+  schedule,
+  checkFile,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onUpload: (file: File) => Promise<string | null>;
+  programName: string;
+  schedule: string | null;
+  checkFile: (file: File) => string | null;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [checks, setChecks] = useState({ name: false, hidden: false });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const inputId = useId();
+
+  useEffect(() => {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  const reset = () => {
+    setFile(null);
+    setPreview(null);
+    setChecks({ name: false, hidden: false });
+    setErr(null);
+  };
+
+  const CHECKS: { key: keyof typeof checks; label: string }[] = [
+    { key: 'name', label: `강좌 이름(${programName})이 보여요` },
+    { key: 'hidden', label: '이름·전화번호·예약번호·QR코드를 가렸어요' },
+  ];
+
+  return (
+    <Sheet
+      open={open}
+      onClose={() => {
+        reset();
+        onClose();
+      }}
+      label="신청 캡처 올리기"
+    >
+      <div className="flex w-full flex-col gap-[2px] leading-[1.4]">
+        <h2 className="m-0 text-[20px] font-black">신청 캡처 올리기</h2>
+        <p className="m-0 text-[12px] text-ink-2">우리 작당 멤버에게만 보여요</p>
+      </div>
+
+      <label htmlFor={inputId} className="flex w-full cursor-pointer flex-col items-center gap-[10px] rounded-[20px] bg-bg p-4">
+        {preview ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={preview} alt="올릴 캡처 미리보기" className="max-h-[220px] w-auto rounded-[12px] border border-line object-contain" />
+        ) : (
+          <div className="flex w-[190px] flex-col gap-[7px] rounded-[12px] border border-line bg-surface p-[14px] leading-[1.4]" aria-hidden="true">
+            <b className="text-[13px] font-black">신청 완료</b>
+            <b className="text-[11px]">{programName}</b>
+            {schedule ? <span className="text-[11px] text-ink-2">{schedule}</span> : null}
+            <span className="flex h-[18px] w-full items-center justify-center rounded-[4px] bg-ink text-[9px] font-bold text-white">가림</span>
+            <span className="flex h-[18px] w-[110px] items-center justify-center rounded-[4px] bg-ink text-[9px] font-bold text-white">가림</span>
+          </div>
+        )}
+        <span className="text-center text-[11px] leading-[1.4] font-medium text-ink-2">
+          {file ? `${file.name} · 다시 누르면 바꿀 수 있어요` : '이름·연락처는 가리고, 눌러서 캡처를 골라 주세요'}
+        </span>
+        <input
+          id={inputId}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="sr-only"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = '';
+            if (!f) return;
+            const bad = checkFile(f);
+            if (bad) {
+              setErr(bad);
+              return;
+            }
+            setErr(null);
+            setFile(f);
+          }}
+        />
+      </label>
+
+      <div className="flex w-full flex-col gap-2">
+        {CHECKS.map((c) => (
+          <label key={c.key} className="flex min-h-9 cursor-pointer items-center gap-2">
+            <input type="checkbox" className="peer sr-only" checked={checks[c.key]} onChange={(e) => setChecks((s) => ({ ...s, [c.key]: e.target.checked }))} />
+            <span
+              aria-hidden="true"
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[10px] border border-line text-[10px] font-black text-white peer-checked:border-coral peer-checked:bg-coral peer-focus-visible:outline-2 peer-focus-visible:outline-coral"
+            >
+              ✓
+            </span>
+            <span className="flex-1 text-[13px] leading-[1.4] font-medium">{c.label}</span>
+          </label>
+        ))}
+      </div>
+      <p className="m-0 w-full text-[11px] leading-[1.5] text-ink-2">캡처는 내가 낸 자료예요. 기관이 수강을 확정한 게 아니고, 앱이 진위를 확인하지도 않아요. JPG·PNG·WebP, 5MB까지.</p>
+      {err ? (
+        <p role="alert" className="m-0 w-full text-[13px] font-bold text-rose">
+          {err}
+        </p>
+      ) : null}
+      <JdButton
+        kind="dark"
+        disabled={busy || !file || !checks.name || !checks.hidden}
+        onClick={async () => {
+          if (!file) return;
+          setBusy(true);
+          setErr(null);
+          const e = await onUpload(file);
+          setBusy(false);
+          if (e) setErr(e);
+          else reset();
+        }}
+      >
+        {busy ? '올리는 중…' : '올리기'}
+      </JdButton>
+    </Sheet>
+  );
+}
+
+/** 참여자 캡처 보기 (60초짜리 링크) */
+export function ProofViewer({ open, onClose, name, url, error }: { open: boolean; onClose: () => void; name: string; url: string | null; error: string | null }) {
+  const title = name === '내' ? '내가 올린 신청 캡처' : `${name}님이 올린 신청 캡처`;
+  return (
+    <Sheet open={open} onClose={onClose} label={title}>
+      <div className="flex w-full flex-col gap-[2px] leading-[1.4]">
+        <h2 className="m-0 text-[20px] font-black">{title}</h2>
+        <p className="m-0 text-[12px] text-ink-2">본인이 낸 자료예요 · 링크는 60초 뒤 만료돼요</p>
+      </div>
+      <div className="flex min-h-[200px] w-full items-center justify-center rounded-[20px] bg-bg p-3">
+        {error ? (
+          <p role="alert" className="m-0 text-[13px] font-bold text-rose">
+            {error}
+          </p>
+        ) : url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={url} alt={title} className="max-h-[60vh] w-auto rounded-[12px] object-contain" />
+        ) : (
+          <span className="text-[12px] text-ink-2">불러오는 중…</span>
+        )}
+      </div>
+      <JdButton kind="light" onClick={onClose}>
+        닫기
+      </JdButton>
+    </Sheet>
+  );
+}

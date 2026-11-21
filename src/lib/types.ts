@@ -42,8 +42,15 @@ export interface Meetup {
 export interface MeetupMember {
   user_id: string;
   joined_at: string;
+  /** 신청했다고 본인이 신고한 시각 (마이그레이션 05 이후) */
+  self_reported_at?: string | null;
+  /** enrollment-proofs 버킷 안의 캡처 경로 (마이그레이션 05 이후) */
+  proof_path?: string | null;
   profiles: Pick<Profile, 'nickname' | 'neighborhood_name' | 'location_checked_at'> | null;
 }
+
+/** 수강 신청 배지 — 기관이 확정한 것처럼 보이면 안 된다 (BE 안내) */
+export type ProofStatus = '미신고' | '신청했다고 신고' | '증빙 제출';
 
 export interface QnaPost {
   id: Id;

@@ -1,14 +1,15 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useId, useState, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useId, useState, type FormEvent } from 'react';
+import { useAuth } from '@/lib/auth';
 import { signIn, signUp } from '@/lib/api';
 import Jakdangi from '@/components/Jakdangi';
 import { BackBar, Button, Note } from '@/components/ui';
 
 export default function LoginPage() {
   const router = useRouter();
-  const next = useSearchParams().get('next') || '/';
+  const { ready, user } = useAuth();
   const [mode, setMode] = useState<'in' | 'up'>('in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,6 +18,11 @@ export default function LoginPage() {
   const [err, setErr] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const ids = { email: useId(), pw: useId(), nick: useId() };
+
+  // 로그인하면(또는 이미 로그인한 상태로 들어오면) 홈으로
+  useEffect(() => {
+    if (ready && user) router.replace('/');
+  }, [ready, user, router]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -27,14 +33,14 @@ export default function LoginPage() {
     try {
       if (mode === 'in') {
         await signIn(email.trim(), password);
-        router.replace(next);
+        router.replace('/');
       } else {
         const r = await signUp(email.trim(), password, nickname.trim());
         if (r.needsEmailConfirm) {
           setInfo('가입 메일을 보냈어요. 메일함에서 인증 링크를 누른 뒤 로그인해 주세요.');
           setMode('in');
         } else {
-          router.replace(next);
+          router.replace('/');
         }
       }
     } catch (e) {
