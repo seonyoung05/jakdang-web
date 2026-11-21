@@ -78,6 +78,8 @@ export function SuccessScreen({
   title,
   schedule,
   registrationUrl,
+  officialLabel = '공식 신청 안내 확인',
+  type = 'CLASS',
 }: {
   open: boolean;
   onClose: () => void;
@@ -86,6 +88,8 @@ export function SuccessScreen({
   title: string;
   schedule: string | null;
   registrationUrl: string | null;
+  officialLabel?: string;
+  type?: 'CLASS' | 'SPACE';
 }) {
   useEffect(() => {
     if (!open || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -115,14 +119,14 @@ export function SuccessScreen({
             <p className="m-0 text-[14px] text-ink-2">
               이웃 {members.length}명이 모여서
               <br />
-              {title} 같이 들어요
+              {type === 'SPACE' ? `${title} 함께해요` : `${title} 같이 들어요`}
             </p>
           </div>
-          <NextSteps schedule={schedule} />
+          <NextSteps schedule={schedule} type={type} />
           <div className="min-h-2 flex-1" />
           {registrationUrl ? (
             <JdLinkButton href={registrationUrl} external kind="dark">
-              공식 신청 안내 확인
+              {officialLabel}
             </JdLinkButton>
           ) : null}
           <JdButton kind="light" onClick={onQna}>
@@ -135,8 +139,11 @@ export function SuccessScreen({
 }
 
 /** 작당 성공 후 할 일 (피그마 04·05의 1·2·3 목록). 실제 완료 여부는 확인할 수 없어 번호로만 보여 준다. */
-export function NextSteps({ schedule }: { schedule: string | null }) {
-  const steps = ['각자 공식 신청 안내에 따라 수강 신청해요', '공개 회의에서 첫날 만날 곳을 정해요', schedule ? `${schedule} 같이 들어요` : '첫 수업에서 만나요'];
+export function NextSteps({ schedule, type = 'CLASS' }: { schedule: string | null; type?: 'CLASS' | 'SPACE' }) {
+  const steps =
+    type === 'SPACE'
+      ? ['공개 회의에서 대관을 신청할 대표 한 명을 정해요', '대표가 공식 대관 안내에 따라 신청하고 결과를 알려 줘요', schedule ? `${schedule.replace(/^희망 /, '')}에 함께 써요 (승인되면)` : '승인되면 함께 써요']
+      : ['각자 공식 신청 안내에 따라 수강 신청해요', '공개 회의에서 첫날 만날 곳을 정해요', schedule ? `${schedule} 같이 들어요` : '첫 수업에서 만나요'];
   return (
     <ol className="m-0 flex list-none flex-col rounded-[20px] border border-line bg-surface px-4 py-[6px]">
       {steps.map((s, i) => (
@@ -188,9 +195,11 @@ export function InviteSheet({ open, onClose, url, members, max }: { open: boolea
 }
 
 /* ───────── 10 질문하기 (공개 회의) ───────── */
-const TOPICS = ['준비물 있나요?', '초보도 들어도 돼요?', '주차 되나요?', '늦게 와도 돼요?'];
+const TOPICS_CLASS = ['준비물 있나요?', '초보도 들어도 돼요?', '주차 되나요?', '늦게 와도 돼요?'];
+const TOPICS_SPACE = ['누가 대관 신청할까요?', '준비물 있나요?', '주차 되나요?', '늦게 와도 돼요?'];
 
-export function QuestionSheet({ open, onClose, onSubmit, nickname }: { open: boolean; onClose: () => void; onSubmit: (text: string) => Promise<string | null>; nickname: string }) {
+export function QuestionSheet({ open, onClose, onSubmit, nickname, type = 'CLASS' }: { open: boolean; onClose: () => void; onSubmit: (text: string) => Promise<string | null>; nickname: string; type?: 'CLASS' | 'SPACE' }) {
+  const TOPICS = type === 'SPACE' ? TOPICS_SPACE : TOPICS_CLASS;
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);

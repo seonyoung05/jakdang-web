@@ -5,6 +5,7 @@ import { use, useRef, useState, type FormEvent, type Ref } from 'react';
 import { checkProofFile, getMeetup, joinMeetup, leaveMeetup, listMembers, listQna, postAnswer, postQuestion, proofStatus, proofUrl, removeProof, selfReport, uploadProof } from '@/lib/api';
 import { useAuth, useLoad } from '@/lib/auth';
 import type { MeetupMember, QnaThread } from '@/lib/types';
+import { viewOf } from '@/lib/meetupView';
 import Jakdangi, { colorFor } from '@/components/Jakdangi';
 import { timeAgo } from '@/components/MeetupCard';
 import { InviteSheet, JoinSheet, NextSteps, ProofSheet, ProofViewer, QuestionSheet, SuccessScreen } from '@/components/MeetupSheets';
@@ -43,7 +44,9 @@ export default function MeetupDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  const p = m.programs;
+  const v = viewOf(m);
+  const sp = m.spaces;
+  const isSpace = v.type === 'SPACE';
   const list = members.data ?? [];
   const known = members.data !== null;
   const count = list.length;
@@ -127,8 +130,9 @@ export default function MeetupDetailPage({ params }: { params: Promise<{ id: str
       </div>
 
       <div className="flex flex-col gap-1 leading-[1.4]">
-        <h1 className="m-0 text-[22px] font-black">{p?.name} 작당</h1>
-        <p className="m-0 text-[12px] text-ink-2">{[p?.venue, p?.schedule_text].filter(Boolean).join(' · ')}</p>
+        <span className="text-[11px] font-bold text-coral-ink">{isSpace ? '공간 함께 쓰기' : '교육 같이 듣기'}</span>
+        <h1 className="m-0 text-[22px] font-black">{isSpace ? v.title : `${v.title} 작당`}</h1>
+        <p className="m-0 text-[12px] text-ink-2">{[v.place, v.when].filter(Boolean).join(' · ')}</p>
       </div>
 
       {/* 작당 현황 */}
@@ -160,10 +164,10 @@ export default function MeetupDetailPage({ params }: { params: Promise<{ id: str
         </section>
       )}
 
-      {full && joined ? <NextSteps schedule={p?.schedule_text ?? null} /> : null}
+      {full && joined ? <NextSteps schedule={v.when} type={v.type} /> : null}
 
       {/* 내 할 일 (피그마 05 '내 할 일' 카드) */}
-      {joined && mine ? (
+      {joined && mine && !isSpace ? (
         <section className="flex flex-col gap-[10px] rounded-[20px] bg-peach px-4 py-[14px]" aria-label="내 할 일">
           <p className="m-0 text-[13px] leading-[1.4] font-black">
             {myStatus === '미신고' ? '내 할 일 · 공식 안내에서 신청하고 알려 주기' : myStatus === '신청했다고 신고' ? '신청했다고 알렸어요 · 캡처도 올려 볼까요?' : '신청 캡처를 냈어요'}
@@ -202,7 +206,24 @@ export default function MeetupDetailPage({ params }: { params: Promise<{ id: str
       ) : null}
 
       {/* 수강 신청 현황 — 로그인한 이웃에게 보이고, 캡처 파일은 같은 작당 멤버만 열 수 있다 */}
-      {known && count > 0 ? (
+      {joined && isSpace ? (
+        <section className="flex flex-col gap-[10px] rounded-[20px] bg-peach px-4 py-[14px]" aria-label="내 할 일">
+          <p className="m-0 text-[13px] leading-[1.4] font-black">내 할 일 · 대관 신청할 대표를 함께 정해요</p>
+          <p className="m-0 text-[11px] leading-[1.5] text-ink-2">공간 대관은 보통 대표 한 명이 공공기관에 신청해요. 공개 회의에서 누가 신청할지 정하고, 결과도 거기서 알려 주세요.</p>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => (user ? setSheet('question') : router.push(loginHref))} className="h-10 flex-1 rounded-[20px] bg-ink text-[13px] font-bold text-white">
+              공개 회의에 쓰기
+            </button>
+            {v.officialUrl ? (
+              <a href={v.officialUrl} target="_blank" rel="noreferrer" className="flex h-10 flex-1 items-center justify-center rounded-[20px] border border-line bg-surface text-[13px] font-bold text-ink no-underline">
+                공식 대관 안내 ↗
+              </a>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      {known && count > 0 && !isSpace ? (
         <section className="note-card flex flex-col px-4 py-1" aria-label="수강 신청 현황">
           <div className="flex items-center justify-between pt-3 pb-1 leading-[1.4]">
             <h2 className="m-0 text-[13px] font-black">수강 신청 현황</h2>
@@ -237,11 +258,21 @@ export default function MeetupDetailPage({ params }: { params: Promise<{ id: str
 
       {/* 정보 */}
       <section className="note-card flex flex-col px-4 py-1 text-[12px] leading-[1.4]" aria-label="강좌 정보">
-        {[
-          ['장소', p?.venue],
-          ['일정', p?.schedule_text],
-          ['정원', `개설자 포함 ${m.max_members}명 · 선착순`],
-        ]
+        {(isSpace
+          ? [
+              ['장소', v.place],
+              ['주소', sp?.address],
+              ['희망 이용 일시', v.when?.replace(/^희망 /, '')],
+              ['모집 정원', `개설자 포함 ${m.max_members}명 · 선착순${sp?.capacity ? ` (공간 수용 ${sp.capacity}명)` : ''}`],
+              ['이용 안내', sp?.usage_notes],
+              ['대관 안내', sp?.reservation_info],
+            ]
+          : [
+              ['장소', v.place],
+              ['일정', v.when],
+              ['정원', `개설자 포함 ${m.max_members}명 · 선착순`],
+            ]
+        )
           .filter(([, v]) => v)
           .map(([k, v]) => (
             <div key={k} className="flex items-start justify-between gap-4 border-b border-line py-3 last:border-0">
@@ -249,14 +280,18 @@ export default function MeetupDetailPage({ params }: { params: Promise<{ id: str
               <b className="text-right">{v}</b>
             </div>
           ))}
-        {p?.registration_url ? (
-          <a href={p.registration_url} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-between gap-4 py-3 text-ink no-underline">
-            <span className="text-ink-2">수강 신청</span>
-            <b className="text-coral-ink">공식 신청 안내 확인 ↗</b>
+        {v.officialUrl ? (
+          <a href={v.officialUrl} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-between gap-4 py-3 text-ink no-underline">
+            <span className="text-ink-2">{isSpace ? '대관 신청' : '수강 신청'}</span>
+            <b className="text-coral-ink">{v.officialLabel} ↗</b>
           </a>
         ) : null}
       </section>
-      <p className="m-0 -mt-1 text-[11px] leading-[1.5] text-ink-2">수강 신청은 공식 기관 사이트·전화·방문으로 각자 해요. 접수 여부와 남은 자리는 공식 안내에서 확인해 주세요.</p>
+      <p className="m-0 -mt-1 text-[11px] leading-[1.5] text-ink-2">
+        {isSpace
+          ? '실제 대관은 공공기관에서 신청·승인받아요. 모집 인원은 함께할 이웃 수이고, 이용 가능 여부는 공식 대관 안내에서 확인해 주세요.'
+          : '수강 신청은 공식 기관 사이트·전화·방문으로 각자 해요. 접수 여부와 남은 자리는 공식 안내에서 확인해 주세요.'}
+      </p>
 
       {/* 공개 회의 */}
       <Qna
@@ -312,7 +347,7 @@ export default function MeetupDetailPage({ params }: { params: Promise<{ id: str
         open={sheet === 'join'}
         onClose={() => setSheet(null)}
         onJoin={join}
-        title={`${p?.name ?? ''} 작당`}
+        title={isSpace ? v.title : `${v.title} 작당`}
         count={count}
         max={m.max_members}
         nickname={nickname}
@@ -324,6 +359,7 @@ export default function MeetupDetailPage({ params }: { params: Promise<{ id: str
         open={sheet === 'question'}
         onClose={() => setSheet(null)}
         nickname={nickname}
+        type={v.type}
         onSubmit={async (text) => {
           if (!user) return '로그인이 필요해요';
           try {
@@ -339,8 +375,8 @@ export default function MeetupDetailPage({ params }: { params: Promise<{ id: str
       <ProofSheet
         open={sheet === 'proof'}
         onClose={() => setSheet(null)}
-        programName={p?.name ?? ''}
-        schedule={p?.schedule_text ?? null}
+        programName={v.title}
+        schedule={v.when}
         checkFile={checkProofFile}
         onUpload={async (file) => {
           if (!user) return '로그인이 필요해요';
@@ -364,9 +400,11 @@ export default function MeetupDetailPage({ params }: { params: Promise<{ id: str
           setTimeout(() => qnaRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
         }}
         members={people}
-        title={p?.name ?? ''}
-        schedule={p?.schedule_text ?? null}
-        registrationUrl={p?.registration_url ?? null}
+        title={v.title}
+        schedule={v.when}
+        registrationUrl={v.officialUrl}
+        officialLabel={v.officialLabel}
+        type={v.type}
       />
     </div>
   );
