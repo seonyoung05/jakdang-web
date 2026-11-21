@@ -23,6 +23,7 @@ export function friendlyError(e: { message?: string; code?: string } | null | un
   if (msg.includes('invalid login credentials')) return '이메일 또는 비밀번호가 맞지 않아요';
   if (msg.includes('user already registered')) return '이미 가입된 이메일이에요';
   if (msg.includes('password should be at least')) return '비밀번호는 6자 이상이어야 해요';
+  if (msg.includes('signups') && msg.includes('disabled')) return '지금은 새 가입이 막혀 있어요. 운영진(백엔드)에게 이메일 가입 허용을 요청해 주세요';
   if (msg.includes('rate limit')) return '가입 메일을 너무 자주 보냈어요. 메일함의 인증 링크를 확인하거나 잠시 뒤 다시 시도해 주세요';
   if (msg.includes('email not confirmed')) return '메일함에서 가입 인증 링크를 먼저 눌러 주세요';
   if (msg.includes('failed to fetch') || msg.includes('network')) return '서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요';
