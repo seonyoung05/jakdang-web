@@ -2,12 +2,12 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { use, useRef, useState, type FormEvent, type Ref } from 'react';
-import { getMeetup, joinMeetup, leaveMeetup, listMembers, listQna, postAnswer, postQuestion } from '@/lib/api';
+import { checkProofFile, getMeetup, joinMeetup, leaveMeetup, listMembers, listQna, postAnswer, postQuestion, proofStatus, proofUrl, removeProof, selfReport, uploadProof } from '@/lib/api';
 import { useAuth, useLoad } from '@/lib/auth';
 import type { MeetupMember, QnaThread } from '@/lib/types';
-import Jakdangi from '@/components/Jakdangi';
+import Jakdangi, { colorFor } from '@/components/Jakdangi';
 import { timeAgo } from '@/components/MeetupCard';
-import { InviteSheet, JoinSheet, NextSteps, QuestionSheet, SuccessScreen } from '@/components/MeetupSheets';
+import { InviteSheet, JoinSheet, NextSteps, ProofSheet, ProofViewer, QuestionSheet, SuccessScreen } from '@/components/MeetupSheets';
 import TableScene, { seatsFrom } from '@/components/TableScene';
 import { CircleButton, JdButton, JdLinkButton, JdPill, JdPillButton } from '@/components/jd';
 import { Loading } from '@/components/ui';
@@ -18,10 +18,11 @@ export default function MeetupDetailPage({ params }: { params: Promise<{ id: str
   const router = useRouter();
   const search = useSearchParams();
   const { ready, user, nickname } = useAuth();
-  const [sheet, setSheet] = useState<'join' | 'invite' | 'question' | null>(search.get('invite') ? 'invite' : null);
+  const [sheet, setSheet] = useState<'join' | 'invite' | 'question' | 'proof' | null>(search.get('invite') ? 'invite' : null);
   const [success, setSuccess] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [viewer, setViewer] = useState<{ name: string; url: string | null; error: string | null } | null>(null);
   const qnaRef = useRef<HTMLElement>(null);
 
   const meetup = useLoad(() => getMeetup(id), [id]);
@@ -54,6 +55,31 @@ export default function MeetupDetailPage({ params }: { params: Promise<{ id: str
   const nameOf = (uid: string) => list.find((x) => x.user_id === uid)?.profiles?.nickname || (uid === user?.id ? nickname : '') || '이웃';
   const pageUrl = typeof window === 'undefined' ? `/m/${m.id}` : `${window.location.origin}/m/${m.id}`;
   const loginHref = `/login?next=${encodeURIComponent(`/m/${id}`)}`;
+  const mine = user ? list.find((x) => x.user_id === user.id) : undefined;
+  const myStatus = mine ? proofStatus(mine) : null;
+
+  const run = async (fn: () => Promise<unknown>) => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await fn();
+      members.reload();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openProof = async (path: string, name: string) => {
+    setViewer({ name, url: null, error: null });
+    try {
+      const url = await proofUrl(path);
+      setViewer({ name, url, error: null });
+    } catch (e) {
+      setViewer({ name, url: null, error: e instanceof Error ? e.message : String(e) });
+    }
+  };
 
   const join = async () => {
     if (!user) return;
@@ -78,6 +104,8 @@ export default function MeetupDetailPage({ params }: { params: Promise<{ id: str
     setBusy(true);
     setErr(null);
     try {
+      // 나가기 전에 내 캡처를 먼저 지운다 (실패해도 나가기는 계속)
+      if (mine?.proof_path) await removeProof(m.id, user.id, mine.proof_path).catch(() => undefined);
       await leaveMeetup(m.id, user.id);
       members.reload();
     } catch (e) {
@@ -134,6 +162,79 @@ export default function MeetupDetailPage({ params }: { params: Promise<{ id: str
 
       {full && joined ? <NextSteps schedule={p?.schedule_text ?? null} /> : null}
 
+      {/* 내 할 일 (피그마 05 '내 할 일' 카드) */}
+      {joined && mine ? (
+        <section className="flex flex-col gap-[10px] rounded-[20px] bg-peach px-4 py-[14px]" aria-label="내 할 일">
+          <p className="m-0 text-[13px] leading-[1.4] font-black">
+            {myStatus === '미신고' ? '내 할 일 · 공식 안내에서 신청하고 알려 주기' : myStatus === '신청했다고 신고' ? '신청했다고 알렸어요 · 캡처도 올려 볼까요?' : '신청 캡처를 냈어요'}
+          </p>
+          <div className="flex gap-2">
+            {myStatus === '미신고' ? (
+              <>
+                <button type="button" disabled={busy} onClick={() => run(() => selfReport(m.id, user!.id))} className="h-10 flex-1 rounded-[20px] bg-ink text-[13px] font-bold text-white disabled:opacity-45">
+                  신청했어요
+                </button>
+                <button type="button" onClick={() => setSheet('proof')} className="h-10 flex-1 rounded-[20px] border border-line bg-surface text-[13px] font-bold">
+                  캡처 올리기
+                </button>
+              </>
+            ) : myStatus === '신청했다고 신고' ? (
+              <button type="button" onClick={() => setSheet('proof')} className="h-10 flex-1 rounded-[20px] bg-ink text-[13px] font-bold text-white">
+                캡처 올리기
+              </button>
+            ) : (
+              <>
+                <button type="button" onClick={() => openProof(mine.proof_path!, '내')} className="h-10 flex-1 rounded-[20px] bg-ink text-[13px] font-bold text-white">
+                  내 캡처 보기
+                </button>
+                <button type="button" disabled={busy} onClick={() => run(() => removeProof(m.id, user!.id, mine.proof_path!))} className="h-10 flex-1 rounded-[20px] border border-line bg-surface text-[13px] font-bold disabled:opacity-45">
+                  캡처 삭제
+                </button>
+              </>
+            )}
+          </div>
+          {err && !sheet ? (
+            <p role="alert" className="m-0 text-[12px] font-bold text-rose">
+              {err}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {/* 수강 신청 현황 — 로그인한 이웃에게 보이고, 캡처 파일은 같은 작당 멤버만 열 수 있다 */}
+      {known && count > 0 ? (
+        <section className="note-card flex flex-col px-4 py-1" aria-label="수강 신청 현황">
+          <div className="flex items-center justify-between pt-3 pb-1 leading-[1.4]">
+            <h2 className="m-0 text-[13px] font-black">수강 신청 현황</h2>
+            <span className="text-[11px] text-ink-2">본인 신고 기준</span>
+          </div>
+          {list.map((x) => {
+            const st = proofStatus(x);
+            const name = x.profiles?.nickname || '이웃';
+            const loc = x.profiles?.location_checked_at ? `${x.profiles?.neighborhood_name ?? ''} · 위치 확인 ${new Date(x.profiles.location_checked_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}` : null;
+            return (
+              <div key={x.user_id} className="flex items-center gap-2.5 border-b border-line py-2.5 last:border-0">
+                <Jakdangi color={colorFor(x.user_id)} mood="sly" size={34} />
+                <div className="min-w-0 flex-1 leading-[1.4]">
+                  <b className="block truncate text-[13px]">
+                    {name}
+                    {x.user_id === user?.id ? ' (나)' : ''}
+                    {x.user_id === m.creator_id ? <span className="ml-1 text-[11px] font-normal text-ink-3">개설자</span> : null}
+                  </b>
+                  {loc ? <span className="block truncate text-[11px] text-ink-2">{loc}</span> : null}
+                </div>
+                {x.proof_path && joined ? (
+                  <button type="button" onClick={() => openProof(x.proof_path!, name)} className="-my-1 min-h-9 shrink-0 text-[11px] font-bold text-coral-ink">
+                    캡처 보기
+                  </button>
+                ) : null}
+                <JdPill style={st === '증빙 제출' ? 'dark' : st === '신청했다고 신고' ? 'peach' : 'soft'}>{st}</JdPill>
+              </div>
+            );
+          })}
+        </section>
+      ) : null}
+
       {/* 정보 */}
       <section className="note-card flex flex-col px-4 py-1 text-[12px] leading-[1.4]" aria-label="강좌 정보">
         {[
@@ -180,7 +281,7 @@ export default function MeetupDetailPage({ params }: { params: Promise<{ id: str
 
       {/* 하단 버튼 */}
       <div className="sticky bottom-0 -mx-[18px] mt-auto flex flex-col gap-2 bg-gradient-to-t from-surface from-70% to-transparent px-[18px] pt-4 pb-2">
-        {err && !sheet ? (
+        {err && !sheet && !joined ? (
           <p role="alert" className="m-0 text-[13px] font-bold text-rose">
             {err}
           </p>
@@ -235,6 +336,26 @@ export default function MeetupDetailPage({ params }: { params: Promise<{ id: str
           }
         }}
       />
+      <ProofSheet
+        open={sheet === 'proof'}
+        onClose={() => setSheet(null)}
+        programName={p?.name ?? ''}
+        schedule={p?.schedule_text ?? null}
+        checkFile={checkProofFile}
+        onUpload={async (file) => {
+          if (!user) return '로그인이 필요해요';
+          try {
+            if (mine?.proof_path) await removeProof(m.id, user.id, mine.proof_path).catch(() => undefined);
+            await uploadProof(m.id, user.id, file);
+            setSheet(null);
+            members.reload();
+            return null;
+          } catch (e) {
+            return e instanceof Error ? e.message : String(e);
+          }
+        }}
+      />
+      <ProofViewer open={!!viewer} onClose={() => setViewer(null)} name={viewer?.name ?? ''} url={viewer?.url ?? null} error={viewer?.error ?? null} />
       <SuccessScreen
         open={success}
         onClose={() => setSuccess(false)}

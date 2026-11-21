@@ -29,6 +29,12 @@ DB 비밀번호, service_role 키, secret 키는 절대 프론트 코드나 `.en
 | 참여자 목록 (로그인 필요) | `meetup_members` + `profiles(...)` | `/m/[id]` |
 | 공개 Q&A (질문·답변) | `qna_posts` (`parent_id`로 답변) | `/m/[id]` |
 | 내 모임 | `meetup_members`(내 것) → `meetups` | `/my` |
+| 신청했다고 신고 | `meetup_members.self_reported_at` 업데이트 | `/m/[id]` 내 할 일 |
+| 신청 캡처 올리기·보기·삭제 | Storage `enrollment-proofs` + `proof_path`, 60초 signed URL | `/m/[id]` |
+| 동네 위치 확인 | Edge Function `verify-neighborhood` | `/me` |
+
+> 증빙은 BE의 `05_proof_storage.sql` 적용 후, 위치 확인은 `verify-neighborhood` 배포·`KAKAO_REST_API_KEY` 설정 후 동작해요.
+> 배지는 `미신고` / `신청했다고 신고` / `증빙 제출`만 쓰고, 위치는 '동네 위치 확인'(거주·신원 인증 아님)으로만 표시해요.
 
 DB 에러(중복 참여, 정원 초과, 권한 없음 등)는 `friendlyError()`가 한국어 문장으로 바꿔 보여 줍니다.
 
@@ -38,7 +44,7 @@ DB 에러(중복 참여, 정원 초과, 권한 없음 등)는 `friendlyError()`�
 - **‘신청 가능’, ‘예약 완료’, ‘인증 완료’를 임의로 표시하지 않아요.** 접수 여부·잔여석은 검증되지 않은 정보예요.
 - 일정(`schedule_text`)은 기관 문구 그대로 보여 줘요.
 - 개인 채팅/DM 없음 → **공개 Q&A**만.
-- 아직 없는 기능(동네 GPS 인증, 수강 신청 증빙, 매너점수, 알림)은 `/me`에 **‘준비 중’**으로만 보여 줘요.
+- 아직 없는 기능(매너점수, 알림)은 `/me`에 **‘준비 중’**으로만 보여 줘요.
 
 ## 통합 테스트 순서
 

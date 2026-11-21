@@ -1,91 +1,139 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { signOut } from '@/lib/api';
+import { useState } from 'react';
+import { signOut, verifyNeighborhood } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import Jakdangi from '@/components/Jakdangi';
+import Jakdangi, { colorFor } from '@/components/Jakdangi';
+import { JdButton, JdLinkButton, JdPill } from '@/components/jd';
 import Icon, { type IconName } from '@/components/Icon';
-import { Avatar, Badge, Button, LinkButton, Loading, SectionTitle } from '@/components/ui';
+import { Loading } from '@/components/ui';
 
 /** 백엔드에 아직 없는 기능. 완료된 것처럼 보이지 않게 '준비 중'으로만 보여 준다. */
 const SOON: { icon: IconName; title: string; desc: string }[] = [
-  { icon: 'pin', title: '동네 위치 인증', desc: 'GPS로 우리 동네 이웃인지 확인해요' },
-  { icon: 'camera', title: '수강 신청 확인', desc: '각자 신청했는지 서로 확인할 수 있게 해요' },
   { icon: 'star', title: '믿음 도장 (매너점수)', desc: '약속을 지킨 기록으로 쌓여요' },
   { icon: 'bell', title: '알림', desc: '자리가 1개 남았을 때, 정원이 찼을 때 알려 줘요' },
 ];
 
+const fmt = (iso: string) =>
+  new Date(iso).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
 export default function MePage() {
   const router = useRouter();
-  const { ready, user, profile, nickname } = useAuth();
+  const { ready, user, profile, nickname, refreshProfile } = useAuth();
+  const [checking, setChecking] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
 
   if (!ready) return <Loading />;
   if (!user) {
     return (
-      <div className="flex flex-col items-center gap-3 pt-16 text-center">
+      <div className="flex flex-col items-center gap-3 pt-20 text-center">
         <Jakdangi color="peach" mood="whisper" size={64} />
         <b className="text-[17px]">로그인하고 작당에 합류해요</b>
-        <LinkButton href="/login?next=/me" variant="dark" className="!w-auto">
+        <JdLinkButton href="/login" kind="dark" className="!w-auto">
           로그인 / 회원가입
-        </LinkButton>
+        </JdLinkButton>
       </div>
     );
   }
 
+  const checkLocation = async () => {
+    setChecking(true);
+    setErr(null);
+    setDone(null);
+    try {
+      const r = await verifyNeighborhood();
+      await refreshProfile();
+      setDone(`${r.neighborhood_name}에 있는 걸 확인했어요`);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setChecking(false);
+    }
+  };
+
   return (
-    <>
-      <header className="flex items-center gap-3.5">
-        <Avatar name={nickname} size={64} ring={false} />
-        <div className="min-w-0 flex-1">
-          <h1 className="m-0 truncate text-[19px] font-black">{nickname}</h1>
-          <span className="block truncate text-xs text-sub">{user.email}</span>
+    <div className="flex flex-col gap-[14px]">
+      <header className="flex items-center gap-3">
+        <Jakdangi color={colorFor(user.id)} mood="sly" size={64} />
+        <div className="min-w-0 flex-1 leading-[1.4]">
+          <h1 className="m-0 truncate text-[20px] font-black">{nickname}</h1>
+          <span className="block truncate text-[12px] text-ink-2">{user.email}</span>
         </div>
       </header>
 
-      <section className="note-card mt-4 flex flex-col divide-y divide-line px-4" aria-label="내 프로필">
-        <div className="flex items-center justify-between py-3 text-sm">
-          <span className="text-sub">닉네임</span>
-          <b>{profile?.nickname || nickname}</b>
+      {/* 동네 위치 확인 */}
+      <section className="flex flex-col gap-[10px] rounded-[24px] bg-peach p-4" aria-label="동네 위치 확인">
+        <div className="flex items-center justify-between gap-2 leading-[1.4]">
+          <h2 className="m-0 text-[15px] font-black">동네 위치 확인</h2>
+          {profile?.location_checked_at ? <JdPill style="dark">확인함</JdPill> : <JdPill style="outline">아직 안 함</JdPill>}
         </div>
-        <div className="flex items-center justify-between py-3 text-sm">
-          <span className="text-sub">동네</span>
-          <b>{profile?.neighborhood_name || '아직 등록되지 않았어요'}</b>
-        </div>
-        <div className="flex items-center justify-between py-3 text-sm">
-          <span className="text-sub">가입일</span>
-          <b>{profile?.created_at ? new Date(profile.created_at).toLocaleDateString('ko-KR') : '-'}</b>
-        </div>
+        {profile?.location_checked_at ? (
+          <p className="m-0 text-[13px] leading-[1.5]">
+            <b className="text-[17px] font-black">{profile.neighborhood_name}</b>
+            <br />
+            <span className="text-ink-2">{fmt(profile.location_checked_at)}에 이 동네에 있었어요</span>
+          </p>
+        ) : (
+          <p className="m-0 text-[13px] leading-[1.5] text-ink-2">지금 있는 곳의 동네 이름을 프로필에 표시해요. 다른 이웃에게는 동네 이름과 확인한 날짜만 보여요.</p>
+        )}
+        <JdButton kind={profile?.location_checked_at ? 'light' : 'dark'} onClick={checkLocation} disabled={checking}>
+          {checking ? '위치 확인 중…' : profile?.location_checked_at ? '지금 위치로 다시 확인' : '지금 위치로 확인하기'}
+        </JdButton>
+        {err ? (
+          <div role="alert" className="flex flex-col gap-1 rounded-[14px] bg-surface p-3 text-[12px] leading-[1.5]">
+            <b className="text-rose">{err}</b>
+            <span className="text-ink-2">실내에서는 위치가 부정확할 수 있어요. 잠시 뒤 다시 눌러 주세요.</span>
+          </div>
+        ) : null}
+        {done ? (
+          <p role="status" className="m-0 text-[12px] font-bold text-coral-ink">
+            {done}
+          </p>
+        ) : null}
+        <p className="m-0 text-[11px] leading-[1.5] text-ink-2">현재 위치를 보여 주는 기능이에요. 거주지나 신원을 인증하는 건 아니에요. 정확한 좌표나 주소는 저장해서 보여 주지 않아요.</p>
       </section>
-      <p className="m-0 mt-2 text-[11px] text-sub">프로필 수정은 아직 지원하지 않아요.</p>
 
-      <SectionTitle>곧 생길 기능</SectionTitle>
+      <section className="note-card flex flex-col px-4 py-1 text-[13px] leading-[1.4]" aria-label="내 프로필">
+        {[
+          ['닉네임', profile?.nickname || nickname],
+          ['가입일', profile?.created_at ? new Date(profile.created_at).toLocaleDateString('ko-KR') : '-'],
+        ].map(([k, v]) => (
+          <div key={k} className="flex items-center justify-between border-b border-line py-3 last:border-0">
+            <span className="text-ink-2">{k}</span>
+            <b>{v}</b>
+          </div>
+        ))}
+      </section>
+      <p className="m-0 -mt-2 text-[11px] text-ink-2">닉네임 수정은 아직 지원하지 않아요.</p>
+
+      <h2 className="m-0 mt-2 text-[16px] leading-[1.4] font-black">곧 생길 기능</h2>
       <div className="flex flex-col gap-2">
         {SOON.map((s) => (
-          <div key={s.title} className="flex items-center gap-3 rounded-2xl border border-dashed border-line-strong bg-paper/70 p-3.5">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-mute text-sub">
+          <div key={s.title} className="flex items-center gap-3 rounded-[20px] border border-dashed border-line p-3.5">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-bg text-ink-2">
               <Icon name={s.icon} size={18} />
             </span>
-            <div className="min-w-0 flex-1">
-              <b className="block text-sm">{s.title}</b>
-              <span className="text-xs text-sub">{s.desc}</span>
+            <div className="min-w-0 flex-1 leading-[1.4]">
+              <b className="block text-[13px]">{s.title}</b>
+              <span className="text-[11px] text-ink-2">{s.desc}</span>
             </div>
-            <Badge>준비 중</Badge>
+            <JdPill style="soft">준비 중</JdPill>
           </div>
         ))}
       </div>
 
-      <div className="mt-8">
-        <Button
-          variant="ghost"
-          icon="logout"
-          onClick={async () => {
-            await signOut();
-            router.replace('/');
-          }}
-        >
-          로그아웃
-        </Button>
-      </div>
-    </>
+      <JdButton
+        kind="light"
+        className="mt-4"
+        onClick={async () => {
+          await signOut();
+          router.replace('/');
+        }}
+      >
+        로그아웃
+      </JdButton>
+    </div>
   );
 }
