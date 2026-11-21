@@ -4,14 +4,24 @@ import confetti from 'canvas-confetti';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect } from 'react';
 import Ddari from './Ddari';
-import { Button, LinkButton } from './ui';
+import Icon from './Icon';
+import { Button } from './ui';
 
-/** 작당 성공! 연출 (명세서 5-4 P1): 문이 열리고 따리가 만세, 컨페티 */
-export default function Celebration({ open, title, chatHref, onClose }: { open: boolean; title: string; chatHref: string; onClose: () => void }) {
+/** 정원이 다 모였을 때 연출. 수강 신청은 각자 공식 기관에서 한다는 안내를 함께 준다. */
+export default function Celebration({
+  open,
+  title,
+  registrationUrl,
+  onClose,
+}: {
+  open: boolean;
+  title: string;
+  registrationUrl: string | null;
+  onClose: () => void;
+}) {
   useEffect(() => {
     if (!open) return;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (!reduce) {
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       confetti({ particleCount: 120, spread: 80, origin: { y: 0.55 }, colors: ['#F08A3C', '#2E6B52', '#FAF8F3', '#E6A03A'] });
     }
   }, [open]);
@@ -23,39 +33,33 @@ export default function Celebration({ open, title, chatHref, onClose }: { open: 
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-label="작당 성공"
+            aria-label="모집 완료"
             initial={{ scale: 0.85, y: 20 }}
             animate={{ scale: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-            className="flex w-full flex-col items-center gap-3 rounded-[28px] bg-green px-6 pt-6 pb-6 text-center text-white"
+            className="flex w-full flex-col items-center gap-3 rounded-[28px] bg-green px-6 py-6 text-center text-white"
           >
-            <div className="relative flex h-28 w-full items-end justify-center">
-              {/* 문이 열리는 모양 */}
-              <motion.span
-                className="absolute bottom-0 left-1/2 h-24 w-16 origin-left rounded-t-lg bg-green-deep"
-                style={{ marginLeft: -32 }}
-                initial={{ rotateY: 0 }}
-                animate={{ rotateY: -70 }}
-                transition={{ delay: 0.15, duration: 0.6 }}
-                aria-hidden="true"
-              />
-              <span className="absolute bottom-0 left-1/2 -ml-8 h-24 w-16 rounded-t-lg border-2 border-white/30" aria-hidden="true" />
-              <motion.span initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.45 }} className="relative">
-                <Ddari mood="cheer" size={64} />
-              </motion.span>
-            </div>
+            <Ddari mood="cheer" size={64} />
             <h2 className="m-0 text-[26px] font-black">작당 성공!</h2>
             <p className="m-0 text-sm leading-relaxed text-[#D3EBDD]">
               {title}
               <br />
-              작당방이 열렸어요. 먼저 인사 나눠 볼까요?
+              정원이 다 모였어요. 이제 각자 공식 기관에서 수강 신청을 해 주세요.
             </p>
             <div className="mt-2 flex w-full flex-col gap-2">
-              <LinkButton href={chatHref} variant="tangerine" icon="chat">
-                작당방 입장
-              </LinkButton>
+              {registrationUrl ? (
+                <a
+                  href={registrationUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-h-[50px] items-center justify-center gap-1.5 rounded-2xl bg-tangerine text-[15px] font-bold text-ink no-underline"
+                >
+                  <Icon name="external" size={18} />
+                  공식 신청 안내 확인
+                </a>
+              ) : null}
               <Button variant="ghost" className="!bg-white/10 !text-white" onClick={onClose}>
-                나중에
+                닫기
               </Button>
             </div>
           </motion.div>

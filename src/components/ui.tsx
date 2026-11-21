@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { animate } from 'motion/react';
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import Icon, { type IconName } from './Icon';
-import type { Participant } from '@/lib/types';
 
 const AV = ['#F6D9A8', '#CDE6F5', '#F3C9C4', '#D6E9C6', '#E2D4F0', '#FBE3B8', '#C9E4DE'];
 export function avatarColor(name: string) {
@@ -14,16 +13,15 @@ export function avatarColor(name: string) {
   return AV[h % AV.length];
 }
 
-export const isVerified = (p: Pick<Participant, 'verification'>) => !!(p.verification.school || p.verification.neighborhood);
-
 export function Avatar({ name, verified, size = 32, ring = true }: { name: string; verified?: boolean; size?: number; ring?: boolean }) {
+  // verified: 백엔드에서 실제 인증이 확인될 때만 true로 넘길 것 (아직 미구현)
   return (
     <span
-      title={`${name}${verified ? ' · 인증' : ''}`}
+      title={name}
       className="relative inline-flex shrink-0 items-center justify-center rounded-full font-bold text-ink"
       style={{ width: size, height: size, background: avatarColor(name), fontSize: size * 0.4, boxShadow: ring ? '0 0 0 2px #fff' : undefined }}
     >
-      {name.slice(0, 1)}
+      {(name || '?').slice(0, 1)}
       {verified ? (
         <span
           className="absolute -right-0.5 -bottom-0.5 flex items-center justify-center rounded-full border-2 border-white bg-green text-white"

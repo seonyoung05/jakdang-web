@@ -1,131 +1,59 @@
-export type Category = '배드민턴' | '풋살' | '농구' | '회의/스터디' | '요리/공유주방' | '다목적';
-export type TimeBand = '평일낮' | '평일저녁' | '주말오전' | '주말오후';
-export type Eligibility = '관내우선' | '추첨제' | '단체명단필요' | '본인인증';
-export type SlotStatus = 'recruiting' | 'opened' | 'booked' | 'failed';
-export type Grade = '높음' | '보통' | '낮음';
+/**
+ * 백엔드 연동 안내(FE_supabase_contract_v2, 2026-11-21) 기준 테이블 타입.
+ * id 타입은 DB에서 uuid/bigint 어느 쪽이어도 되도록 string | number로 둔다.
+ */
+export type Id = string | number;
 
-/** 함께할 분 조건. 기본은 누구나, 나머지는 '선호'로만 표시한다. */
-export type Audience = 'anyone' | 'verified' | 'peers' | 'sameGender';
-
-export interface Facility {
+export interface Profile {
   id: string;
-  facilityName: string;
-  district: string; // 자치구
-  dong: string; // 동네 표시용
-  category: Category;
-  capacity: number;
-  capacitySource: 'extracted' | 'fallback';
-  totalFee: number; // 무료면 0
-  feeSource: 'extracted' | 'fallback';
-  isFree: boolean;
-  eligibility: Eligibility[];
-  bookingLeadDays: number;
-  reservationEndAt: string; // ISO
-  reservationUrl: string; // 원본 SVCURL
+  nickname: string | null;
+  neighborhood_code: string | null;
+  neighborhood_name: string | null;
+  location_checked_at: string | null;
+  created_at: string;
 }
 
-export interface Slot {
-  id: string;
-  facilityId: string;
-  startAt: string; // ISO, 제안 시간
-  endAt: string;
-  purpose: string;
-  vibeTags: string[];
-  audience: Audience;
-  requiredCount: number;
-  hostNickname: string;
-  hostPinHash: string;
-  chatEnabled: boolean;
-  status: SlotStatus;
-  openedAt?: string;
-  bookedAt?: string;
-  parentSlotId?: string;
-  createdAt: string;
+export interface Program {
+  id: Id;
+  source_name?: string | null;
+  external_id?: string | null;
+  name: string;
+  venue: string | null;
+  district: string | null;
+  /** 회차별 날짜가 아니라 사람이 읽는 문자열 */
+  schedule_text: string | null;
+  /** 온라인 예약 URL이 아니라 공식 안내 페이지일 수 있음 */
+  registration_url: string | null;
+  registration_end_at?: string | null;
 }
 
-export interface Verification {
-  school?: string; // 학교 이름
-  neighborhood?: string; // 인증한 동네
+export type MeetupStatus = 'OPEN' | 'CLOSED';
+
+export interface Meetup {
+  id: Id;
+  program_id: Id;
+  creator_id: string;
+  max_members: number;
+  status: MeetupStatus;
+  created_at: string;
+  programs: Pick<Program, 'id' | 'name' | 'venue' | 'schedule_text'> & Partial<Program> | null;
 }
 
-export interface Participant {
-  id: string;
-  slotId: string;
-  nickname: string;
-  pinHash: string;
-  isHost: boolean;
-  joinedAt: string;
-  verification: Verification;
-  manner: number | null; // null = 새싹(기록 없음)
-  ageBand?: string; // '20대' 등, 선택 공개
+export interface MeetupMember {
+  user_id: string;
+  joined_at: string;
+  profiles: Pick<Profile, 'nickname' | 'neighborhood_name' | 'location_checked_at'> | null;
 }
 
-export interface ChatMessage {
-  id: string;
-  slotId: string;
-  nickname: string; // 'system' 이면 시스템 메시지
-  text: string;
-  at: string;
+export interface QnaPost {
+  id: Id;
+  author_id: string;
+  parent_id: Id | null;
+  content: string;
+  created_at: string;
 }
 
-export interface Notice {
-  id: string;
-  kind: 'opened' | 'almost' | 'friend' | 'reminder' | 'manner' | 'fallback';
-  text: string;
-  strong?: string;
-  at: string;
-  read: boolean;
-  href?: string;
-}
-
-/** 이전 내역. '노쇼'라는 말 대신 담담한 상태로 기록한다. */
-export type HistoryState = 'checkedOut' | 'attended' | 'missed' | 'notOpened';
-export interface HistoryItem {
-  id: string;
-  title: string;
-  date: string;
-  people: number;
-  state: HistoryState;
-  note?: string;
-}
-
-export interface Me {
-  nickname: string;
-  district: string;
-  dong: string;
-  ageBand: string;
-  verification: Verification;
-  manner: number;
-  keptPromises: number;
-  totalPromises: number;
-  checkouts: number;
-  praises: { label: string; count: number }[];
-  friends: string[];
-}
-
-export type PopulationLookup = Record<string, Record<TimeBand, number>>;
-
-export interface SlotView extends Slot {
-  facility: Facility;
-  participants: Participant[];
-  currentCount: number;
-  remaining: number;
-  isOpen: boolean;
-  isFull: boolean;
-  feeIfJoinNow: number | null;
-  feeMine: number | null;
-  feeAtTarget: number | null;
-  possibilityScore: number;
-  possibilityGrade: Grade;
-  nearbyPopulation: number;
-  timeBand: TimeBand;
-  deadline: string;
-  deadlineMs: number;
-  deadlineUrgent: boolean;
-  myParticipantId?: string;
-  isMine: boolean;
-  amIHost: boolean;
-  verifiedCount: number;
-  avgManner: number | null;
-  friendsIn: string[];
+/** 질문 + 그 아래 답변 */
+export interface QnaThread extends QnaPost {
+  answers: QnaPost[];
 }

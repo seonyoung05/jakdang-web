@@ -1,132 +1,90 @@
 'use client';
 
-import { useStore } from '@/lib/store';
-import { history } from '@/lib/mock';
-import type { HistoryState } from '@/lib/types';
+import { useRouter } from 'next/navigation';
+import { signOut } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
+import Ddari from '@/components/Ddari';
 import Icon, { type IconName } from '@/components/Icon';
-import { Avatar, Badge, Button, IconButton, SectionTitle } from '@/components/ui';
+import { Avatar, Badge, Button, LinkButton, Loading, SectionTitle } from '@/components/ui';
 
-/** '노쇼'라는 말 대신 담담한 상태 이름으로 기록한다 */
-const STATE: Record<HistoryState, { label: string; tone: 'green' | 'gray' | 'sky'; icon: IconName }> = {
-  checkedOut: { label: '뒷정리 완료', tone: 'green', icon: 'broom' },
-  attended: { label: '함께했어요', tone: 'green', icon: 'door' },
-  missed: { label: '함께하지 못함', tone: 'gray', icon: 'cal' },
-  notOpened: { label: '열리지 않음', tone: 'sky', icon: 'clock' },
-};
-
-function mannerWord(n: number) {
-  if (n >= 90) return '믿고 함께하는 이웃이에요';
-  if (n >= 75) return '꾸준히 약속을 지키고 있어요';
-  return '조금씩 믿음을 쌓는 중이에요';
-}
+/** 백엔드에 아직 없는 기능. 완료된 것처럼 보이지 않게 '준비 중'으로만 보여 준다. */
+const SOON: { icon: IconName; title: string; desc: string }[] = [
+  { icon: 'pin', title: '동네 위치 인증', desc: 'GPS로 우리 동네 이웃인지 확인해요' },
+  { icon: 'camera', title: '수강 신청 확인', desc: '각자 신청했는지 서로 확인할 수 있게 해요' },
+  { icon: 'star', title: '믿음 도장 (매너점수)', desc: '약속을 지킨 기록으로 쌓여요' },
+  { icon: 'bell', title: '알림', desc: '자리가 1개 남았을 때, 정원이 찼을 때 알려 줘요' },
+];
 
 export default function MePage() {
-  const { me, reset, mode } = useStore();
-  const circ = 2 * Math.PI * 42;
+  const router = useRouter();
+  const { ready, user, profile, nickname } = useAuth();
+
+  if (!ready) return <Loading />;
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center gap-3 pt-16 text-center">
+        <Ddari mood="look" />
+        <b className="text-[17px]">로그인하고 작당에 합류해요</b>
+        <LinkButton href="/login?next=/me" variant="dark" className="!w-auto">
+          로그인 / 회원가입
+        </LinkButton>
+      </div>
+    );
+  }
 
   return (
     <>
       <header className="flex items-center gap-3.5">
-        <Avatar name={me.nickname} verified size={64} ring={false} />
-        <div className="flex-1">
-          <h1 className="m-0 text-[19px] font-black">{me.nickname}</h1>
-          <span className="text-xs text-sub">
-            {me.district} {me.dong} · {me.ageBand}
-          </span>
+        <Avatar name={nickname} size={64} ring={false} />
+        <div className="min-w-0 flex-1">
+          <h1 className="m-0 truncate text-[19px] font-black">{nickname}</h1>
+          <span className="block truncate text-xs text-sub">{user.email}</span>
         </div>
-        <IconButton label="알림" icon="bell" href="/notifications" />
       </header>
 
-      <section className="note-card mt-4 flex items-center gap-4 p-4" aria-label="믿음 도장">
-        <div className="relative h-24 w-24 shrink-0">
-          <svg viewBox="0 0 100 100" width="96" height="96" aria-hidden="true">
-            <circle cx="50" cy="50" r="42" fill="none" stroke="#EEE9DE" strokeWidth="10" />
-            <circle cx="50" cy="50" r="42" fill="none" stroke="#2E6B52" strokeWidth="10" strokeLinecap="round" strokeDasharray={`${(me.manner / 100) * circ} ${circ}`} transform="rotate(-90 50 50)" />
-          </svg>
-          <b className="absolute inset-0 flex flex-col items-center justify-center text-[26px] leading-none font-black">
-            {me.manner}
-            <small className="mt-1 text-[11px] font-medium text-sub">믿음 도장</small>
-          </b>
+      <section className="note-card mt-4 flex flex-col divide-y divide-line px-4" aria-label="내 프로필">
+        <div className="flex items-center justify-between py-3 text-sm">
+          <span className="text-sub">닉네임</span>
+          <b>{profile?.nickname || nickname}</b>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <b className="text-[15px]">{mannerWord(me.manner)}</b>
-          <span className="text-xs text-sub">
-            약속 지킨 모임 <b className="text-ink">{me.keptPromises}</b> / {me.totalPromises}
-          </span>
-          <span className="text-xs text-sub">
-            뒷정리 작전 <b className="text-ink">{me.checkouts}</b>회 · 받은 칭찬 <b className="text-ink">{me.praises.reduce((a, p) => a + p.count, 0)}</b>개
-          </span>
+        <div className="flex items-center justify-between py-3 text-sm">
+          <span className="text-sub">동네</span>
+          <b>{profile?.neighborhood_name || '아직 등록되지 않았어요'}</b>
+        </div>
+        <div className="flex items-center justify-between py-3 text-sm">
+          <span className="text-sub">가입일</span>
+          <b>{profile?.created_at ? new Date(profile.created_at).toLocaleDateString('ko-KR') : '-'}</b>
         </div>
       </section>
+      <p className="m-0 mt-2 text-[11px] text-sub">프로필 수정은 아직 지원하지 않아요.</p>
 
-      <SectionTitle>인증</SectionTitle>
-      <div className="grid grid-cols-2 gap-2">
-        {[
-          { icon: 'school' as const, label: '학교 인증', value: me.verification.school, how: '학교 메일로 인증' },
-          { icon: 'pin' as const, label: '동네 인증', value: me.verification.neighborhood, how: '현재 위치로 인증 · 30일마다 갱신' },
-        ].map((x) => (
-          <div key={x.label} className={`flex flex-col gap-1 rounded-2xl p-3 text-xs ${x.value ? 'bg-mint' : 'border border-dashed border-line-strong bg-paper'}`}>
-            <b className={`flex items-center gap-1.5 text-sm ${x.value ? 'text-mint-ink' : ''}`}>
-              <Icon name={x.icon} size={16} />
-              {x.label}
-            </b>
-            <span className={x.value ? 'text-mint-ink' : 'text-sub'}>{x.value ?? x.how}</span>
-            {!x.value ? (
-              <button type="button" className="mt-1 min-h-9 rounded-[10px] bg-ink text-xs font-bold text-white">
-                인증하기
-              </button>
-            ) : null}
-          </div>
-        ))}
-      </div>
-
-      <SectionTitle>받은 칭찬</SectionTitle>
-      <div className="flex flex-wrap gap-1.5">
-        {me.praises.map((p) => (
-          <span key={p.label} className="rounded-full border border-line bg-paper px-2.5 py-1.5 text-xs">
-            {p.label}
-            <b className="ml-1 text-green">{p.count}</b>
-          </span>
-        ))}
-      </div>
-
-      <SectionTitle>이전 내역</SectionTitle>
-      <section className="note-card px-3.5 py-0.5">
-        {history.map((h) => {
-          const s = STATE[h.state];
-          return (
-            <div key={h.id} className="flex items-center gap-3 border-b border-line py-3 last:border-0">
-              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${s.tone === 'green' ? 'bg-mint text-green' : s.tone === 'sky' ? 'bg-sky text-sky-ink' : 'bg-mute text-[#4C554F]'}`}>
-                <Icon name={s.icon} size={17} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <b className="block truncate text-sm">{h.title}</b>
-                <span className="text-xs text-sub">
-                  {h.date} · {h.people}명{h.note ? ` · ${h.note}` : ''}
-                </span>
-              </div>
-              <Badge tone={s.tone}>{s.label}</Badge>
+      <SectionTitle>곧 생길 기능</SectionTitle>
+      <div className="flex flex-col gap-2">
+        {SOON.map((s) => (
+          <div key={s.title} className="flex items-center gap-3 rounded-2xl border border-dashed border-line-strong bg-paper/70 p-3.5">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-mute text-sub">
+              <Icon name={s.icon} size={18} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <b className="block text-sm">{s.title}</b>
+              <span className="text-xs text-sub">{s.desc}</span>
             </div>
-          );
-        })}
-      </section>
-      <p className="m-0 mt-2 text-[11px] leading-relaxed text-sub">함께하지 못한 기록은 나에게만 보여요. 다른 이웃에게는 &lsquo;약속 지킨 모임&rsquo; 숫자만 보여요.</p>
-
-      <SectionTitle>작당 동료 {me.friends.length}명</SectionTitle>
-      <div className="flex flex-wrap gap-3">
-        {me.friends.map((f) => (
-          <div key={f} className="flex flex-col items-center gap-1 text-xs">
-            <Avatar name={f} verified size={48} ring={false} />
-            {f}
+            <Badge>준비 중</Badge>
           </div>
         ))}
       </div>
 
       <div className="mt-8">
-        <Button variant="ghost" onClick={reset}>
-          시연 데이터 처음으로 되돌리기
+        <Button
+          variant="ghost"
+          icon="logout"
+          onClick={async () => {
+            await signOut();
+            router.replace('/');
+          }}
+        >
+          로그아웃
         </Button>
-        <p className="m-0 mt-2 text-center text-[11px] text-sub">데이터 모드: {mode === 'supabase' ? 'Supabase 실시간' : '로컬 목업'}</p>
       </div>
     </>
   );

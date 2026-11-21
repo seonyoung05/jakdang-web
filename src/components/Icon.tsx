@@ -128,6 +128,31 @@ const paths = {
       <path d="M6 20l1.5-3.5M9.5 20l1-2" />
     </>
   ),
+  book: (
+    <>
+      <path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6.5A2.5 2.5 0 0 0 4 21.5z" />
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H19" />
+    </>
+  ),
+  logout: (
+    <>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="m16 17 5-5-5-5M21 12H9" />
+    </>
+  ),
+  help: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01" />
+    </>
+  ),
+  refresh: (
+    <>
+      <path d="M21 12a9 9 0 0 1-15.5 6.2L3 16" />
+      <path d="M3 12a9 9 0 0 1 15.5-6.2L21 8" />
+      <path d="M21 3v5h-5M3 21v-5h5" />
+    </>
+  ),
 } as const;
 
 export type IconName = keyof typeof paths;

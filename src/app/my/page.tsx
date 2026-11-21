@@ -1,49 +1,77 @@
 'use client';
 
-import { useStore } from '@/lib/store';
-import SlotCard from '@/components/SlotCard';
+import { getMeetupsByIds, memberIndex, myMeetupIds } from '@/lib/api';
+import { useAuth, useLoad } from '@/lib/auth';
+import MeetupCard from '@/components/MeetupCard';
 import Ddari from '@/components/Ddari';
 import { LinkButton, Loading, SectionTitle } from '@/components/ui';
-import { useJoinFlow } from '@/components/useJoinFlow';
 
-export default function MySlotsPage() {
-  const { ready, views } = useStore();
-  const { openJoin, openCancel, ui } = useJoinFlow();
-  const mine = views.filter((v) => v.isMine);
-  const groups = [
-    { title: '열린 작당', items: mine.filter((v) => v.isOpen) },
-    { title: '도장 모으는 중', items: mine.filter((v) => !v.isOpen && v.status !== 'failed') },
-    { title: '이번엔 못 열렸어요', items: mine.filter((v) => v.status === 'failed') },
-  ].filter((g) => g.items.length);
+export default function MyMeetupsPage() {
+  const { ready, user } = useAuth();
+  const { data, loading, error, reload } = useLoad(async () => {
+    if (!user) return null;
+    const ids = await myMeetupIds(user.id);
+    const meetups = await getMeetupsByIds(ids);
+    const members = await memberIndex(meetups.map((m) => m.id));
+    return { meetups, members };
+  }, [user?.id]);
+
+  if (!ready) return <Loading />;
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center gap-3 pt-16 text-center">
+        <Ddari mood="look" />
+        <b className="text-[17px]">로그인하면 내 모임이 보여요</b>
+        <LinkButton href="/login?next=/my" variant="dark" className="!w-auto">
+          로그인하러 가기
+        </LinkButton>
+      </div>
+    );
+  }
+
+  const rows = (data?.meetups ?? []).map((m) => ({ m, count: data?.members ? (data.members.get(String(m.id))?.length ?? 0) : null }));
+  const created = rows.filter((r) => r.m.creator_id === user.id);
+  const joined = rows.filter((r) => r.m.creator_id !== user.id);
 
   return (
     <>
-      <h1 className="m-0 text-[22px] font-black">내 작당</h1>
-      {!ready ? (
+      <h1 className="m-0 text-[22px] font-black">내 모임</h1>
+      {loading ? (
         <Loading />
-      ) : mine.length === 0 ? (
+      ) : error ? (
+        <div role="alert" className="mt-3 rounded-2xl bg-[#FBE4E1] p-4 text-sm text-rose">
+          {error}
+          <button type="button" onClick={reload} className="ml-2 font-bold underline">
+            다시 시도
+          </button>
+        </div>
+      ) : rows.length === 0 ? (
         <div className="mt-10 flex flex-col items-center gap-3 text-center">
           <Ddari mood="sleepy" />
-          <b>아직 참여한 작당이 없어요</b>
+          <b>아직 참여한 모임이 없어요</b>
           <LinkButton href="/" variant="dark" className="!w-auto">
-            작당 쪽지 보러 가기
+            모집 보러 가기
           </LinkButton>
         </div>
       ) : (
-        groups.map((g) => (
-          <section key={g.title}>
-            <SectionTitle>
-              {g.title} <span className="text-green">{g.items.length}</span>
-            </SectionTitle>
-            <div className="flex flex-col gap-3">
-              {g.items.map((v) => (
-                <SlotCard key={v.id} v={v} onJoin={() => openJoin(v)} onCancel={() => openCancel(v)} />
-              ))}
-            </div>
-          </section>
-        ))
+        [
+          { title: '내가 연 모집', items: created },
+          { title: '참여 중인 모집', items: joined },
+        ]
+          .filter((g) => g.items.length)
+          .map((g) => (
+            <section key={g.title}>
+              <SectionTitle>
+                {g.title} <span className="text-green">{g.items.length}</span>
+              </SectionTitle>
+              <div className="flex flex-col gap-3">
+                {g.items.map(({ m, count }) => (
+                  <MeetupCard key={String(m.id)} m={m} count={count} />
+                ))}
+              </div>
+            </section>
+          ))
       )}
-      {ui}
     </>
   );
 }
