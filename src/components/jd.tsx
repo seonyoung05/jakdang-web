@@ -138,3 +138,26 @@ export function CircleButton({ label, onClick, children }: { label: string; onCl
     </button>
   );
 }
+
+/* ───────── 세그먼트 (피그마 08 '예약 방식' 토글 모양) ───────── */
+export function Segmented<T extends string>({ label, value, onChange, options }: { label: string; value: T; onChange: (v: T) => void; options: { value: T; label: string }[] }) {
+  return (
+    <div role="tablist" aria-label={label} className="flex w-full items-center rounded-[22px] bg-bg p-[3px]">
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => onChange(o.value)}
+            className={`flex h-10 flex-1 items-center justify-center rounded-[18px] text-[13px] leading-[1.4] ${on ? 'bg-surface font-bold text-ink shadow-[0_1px_2px_rgba(46,36,31,0.06)]' : 'font-medium text-ink-2'}`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}

@@ -39,7 +39,7 @@
   --shadow-phone: 0 8px 24px 0 rgb(46 36 31 / 0.08);
 }
 
-html, body { height: 100%; }
+html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 body {
   margin: 0;
   background: var(--color-backdrop);

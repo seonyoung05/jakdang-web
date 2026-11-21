@@ -1,6 +1,6 @@
 # 작당모임 — 모이면, 열린다
 
-**공공기관의 공식 교육 프로그램에 함께 참여할 동네 이웃을 모집**하는 모바일 웹앱입니다.
+**공공기관의 공식 교육 프로그램을 같이 듣고(CLASS), 공식 공공공간을 함께 쓸(SPACE) 동네 이웃을 모집**하는 모바일 웹앱입니다.
 작당모임은 수강 신청·예약을 처리하지 않아요. 이웃이 모이면, 각자 공식 기관 안내에 따라 신청합니다.
 
 ## 빠르게 시작하기
@@ -32,6 +32,11 @@ DB 비밀번호, service_role 키, secret 키는 절대 프론트 코드나 `.en
 | 신청했다고 신고 | `meetup_members.self_reported_at` 업데이트 | `/m/[id]` 내 할 일 |
 | 신청 캡처 올리기·보기·삭제 | Storage `enrollment-proofs` + `proof_path`, 60초 signed URL | `/m/[id]` |
 | 동네 위치 확인 | Edge Function `verify-neighborhood` | `/me` |
+| 공식 공간 목록 | `spaces` (`district = 종로구`) | `/programs?tab=space`, `/new` |
+| 공간 동행 개설 | `meetups` insert (`meetup_type: 'SPACE'`, `space_id`, `activity_title`, `proposed_start_at/end_at`, program_id 없음) | `/new` |
+
+> 공간 동행은 BE의 `07_public_space_meetups.sql` 적용 후 동작해요. 적용 전 DB에서도 교육 동행은 그대로 보이도록 예전 쿼리로 자동 전환해요.
+> 공간 문구는 '희망 이용 일시', '공식 대관 안내 확인'. '예약 완료'·'사용 가능'은 쓰지 않고, 신청 증빙 UI는 교육 동행에만 보여요. 모집 정원은 공간 수용 인원을 넘지 못해요.
 
 > 증빙은 BE의 `05_proof_storage.sql` 적용 후, 위치 확인은 `verify-neighborhood` 배포·`KAKAO_REST_API_KEY` 설정 후 동작해요.
 > 배지는 `미신고` / `신청했다고 신고` / `증빙 제출`만 쓰고, 위치는 '동네 위치 확인'(거주·신원 인증 아님)으로만 표시해요.

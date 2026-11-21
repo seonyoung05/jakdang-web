@@ -4,13 +4,35 @@
  */
 import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from './supabase';
-import type { Id, Meetup, MeetupMember, ProofStatus, Profile, Program, QnaPost, QnaThread } from './types';
+import type { Id, Meetup, MeetupMember, MeetupType, ProofStatus, Profile, Program, QnaPost, QnaThread, Space } from './types';
 
 export const DISTRICT = '종로구';
 export const MIN_MEMBERS = 2;
 export const MAX_MEMBERS = 20;
 
-const MEETUP_SELECT = 'id,program_id,creator_id,max_members,status,created_at,programs(id,name,venue,schedule_text,registration_url)';
+/** 07 이후: 교육(programs)과 공간(spaces) 둘 다 붙여서 읽는다 */
+const MEETUP_SELECT =
+  'id,meetup_type,program_id,space_id,activity_title,proposed_start_at,proposed_end_at,creator_id,max_members,status,created_at,' +
+  'programs(id,name,venue,schedule_text,registration_url),spaces(id,name,venue,district,address,reservation_url,reservation_info,capacity,usage_notes)';
+/** 07 이전 DB용 (공간 동행 없음) */
+const MEETUP_SELECT_LEGACY = 'id,program_id,creator_id,max_members,status,created_at,programs(id,name,venue,schedule_text,registration_url)';
+
+/** 07이 아직 안 들어간 DB에서 나는 오류인지 (없는 컬럼·관계) */
+function isMissingSchema(e: PostgrestError | null): boolean {
+  if (!e) return false;
+  return e.code === '42703' || e.code === 'PGRST200' || e.code === 'PGRST204' || /meetup_type|space_id|spaces|activity_title|proposed_/.test(e.message);
+}
+
+/** 새 select로 읽고, 07 이전 DB면 예전 select로 다시 읽는다 */
+async function readMeetups<T>(build: (select: string) => PromiseLike<{ data: unknown; error: PostgrestError | null }>): Promise<T> {
+  let res = await build(MEETUP_SELECT);
+  if (isMissingSchema(res.error)) res = await build(MEETUP_SELECT_LEGACY);
+  return check(res.data as T | null, res.error) as T;
+}
+
+export function meetupType(m: Pick<Meetup, 'meetup_type'>): MeetupType {
+  return m.meetup_type === 'SPACE' ? 'SPACE' : 'CLASS';
+}
 
 /** DB 에러를 사람이 읽을 문장으로 바꾼다 */
 export function friendlyError(e: { message?: string; code?: string } | null | undefined): string {
@@ -78,29 +100,77 @@ export async function listPrograms(): Promise<Program[]> {
 /* ───────── 3) 모집글 ───────── */
 
 export async function listMeetups(): Promise<Meetup[]> {
-  const { data, error } = await supabase().from('meetups').select(MEETUP_SELECT).order('created_at', { ascending: false });
-  return (check(data, error) ?? []) as unknown as Meetup[];
+  return (await readMeetups<Meetup[]>((sel) => supabase().from('meetups').select(sel).order('created_at', { ascending: false }))) ?? [];
 }
 
 export async function getMeetup(id: Id): Promise<Meetup | null> {
-  const { data, error } = await supabase().from('meetups').select(MEETUP_SELECT).eq('id', id).maybeSingle();
-  return check(data, error) as unknown as Meetup | null;
+  return readMeetups<Meetup | null>((sel) => supabase().from('meetups').select(sel).eq('id', id).maybeSingle());
 }
 
 export async function getMeetupsByIds(ids: Id[]): Promise<Meetup[]> {
   if (ids.length === 0) return [];
-  const { data, error } = await supabase().from('meetups').select(MEETUP_SELECT).in('id', ids).order('created_at', { ascending: false });
-  return (check(data, error) ?? []) as unknown as Meetup[];
+  return (await readMeetups<Meetup[]>((sel) => supabase().from('meetups').select(sel).in('id', ids).order('created_at', { ascending: false }))) ?? [];
+}
+
+/* ───────── 공식 공공공간 (07) ───────── */
+
+export async function listSpaces(): Promise<Space[]> {
+  const { data, error } = await supabase()
+    .from('spaces')
+    .select('id,name,venue,district,address,reservation_url,reservation_info,capacity,usage_notes')
+    .eq('district', DISTRICT)
+    .order('name');
+  if (error && (error.code === '42P01' || error.code === 'PGRST205' || /spaces/.test(error.message))) {
+    throw new Error('공간 목록이 아직 준비되지 않았어요 (백엔드 07 적용 확인)');
+  }
+  return check(data as Space[] | null, error) ?? [];
+}
+
+/** 공간 동행의 최대 모집 정원: DB 상한 20과 공간 수용 인원 중 작은 값 */
+export function spaceMaxMembers(space: Pick<Space, 'capacity'> | null | undefined): number {
+  const cap = space?.capacity ?? null;
+  return cap && cap > 0 ? Math.max(MIN_MEMBERS, Math.min(MAX_MEMBERS, cap)) : MAX_MEMBERS;
 }
 
 /* ───────── 4) 모집글 생성 (개설자는 자동으로 참여자 1명) ───────── */
 
 export async function createMeetup(programId: Id, creatorId: string, maxMembers: number): Promise<Meetup> {
-  const { data, error } = await supabase()
+  const sb = supabase();
+  let res = await sb
     .from('meetups')
-    .insert({ program_id: programId, creator_id: creatorId, max_members: maxMembers })
+    .insert({ meetup_type: 'CLASS', program_id: programId, creator_id: creatorId, max_members: maxMembers })
     .select('id,program_id,creator_id,max_members,status')
     .single();
+  // 07 이전 DB면 meetup_type 없이 다시
+  if (isMissingSchema(res.error)) {
+    res = await sb.from('meetups').insert({ program_id: programId, creator_id: creatorId, max_members: maxMembers }).select('id,program_id,creator_id,max_members,status').single();
+  }
+  return check(res.data, res.error) as unknown as Meetup;
+}
+
+/** 공간 대여 동행 개설 — program_id는 보내지 않는다 (보내면 DB 제약 위반) */
+export async function createSpaceMeetup(input: {
+  spaceId: Id;
+  creatorId: string;
+  maxMembers: number;
+  activityTitle: string;
+  startAt: Date;
+  endAt: Date;
+}): Promise<Meetup> {
+  const { data, error } = await supabase()
+    .from('meetups')
+    .insert({
+      meetup_type: 'SPACE',
+      space_id: input.spaceId,
+      creator_id: input.creatorId,
+      max_members: input.maxMembers,
+      activity_title: input.activityTitle,
+      proposed_start_at: input.startAt.toISOString(),
+      proposed_end_at: input.endAt.toISOString(),
+    })
+    .select('id,meetup_type,space_id,creator_id,max_members,status')
+    .single();
+  if (isMissingSchema(error)) throw new Error('공간 동행이 아직 준비되지 않았어요 (백엔드 07 적용 확인)');
   return check(data, error) as unknown as Meetup;
 }
 
